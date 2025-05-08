@@ -36,7 +36,7 @@ jobs:
 
       - name: Generate Helm index
         run: |
-          helm repo index ./public --url https://RHEcosystemAppEng.github.io/ai-architecture-charts
+          helm repo index ./public --url https://rhecosystemappeng.github.io/ai-architecture-charts
 
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
