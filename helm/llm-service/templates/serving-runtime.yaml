@@ -32,7 +32,11 @@ spec:
     env:
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    image: {{ .Values.servingRuntime.image }}
+    {{- if eq .Values.device "gpu" }}
+    image: {{ .Values.servingRuntime.gpuImage }}
+    {{- else }}
+    image: {{ .Values.servingRuntime.cpuImage }}
+    {{- end }}
     name: kserve-container
     ports:
     - containerPort: 8080
