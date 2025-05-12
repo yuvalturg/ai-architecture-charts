@@ -28,6 +28,7 @@ spec:
       {{- if hasKey $model "resources" }}
       {{- toYaml $model.resources | nindent 8 }}
       {{- else }}
+      {{- if eq $root.Values.device "gpu" }}
         limits:
           cpu: "2"
           memory: 8Gi
@@ -36,6 +37,7 @@ spec:
           cpu: "1"
           memory: 4Gi
           nvidia.com/gpu: "1"
+      {{- end }}
       {{- end }}
       runtime: {{ $root.Values.servingRuntime.name }}
       storageUri: pvc://{{ $key }}/
