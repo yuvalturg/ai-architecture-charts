@@ -1,0 +1,63 @@
+{{- $root := . }}
+{{- $models := include "llm-service.mergeModels" . | fromJson }}
+{{- range $key, $model := $models }}
+{{- if and $model.enabled (not $model.url) }}
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ $key }}
+  annotations:
+    openshift.io/display-name: {{ $key }}
+    serving.knative.openshift.io/enablePassthrough: "true"
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    storage.kserve.io/readonly: "false"
+  labels:
+    opendatahub.io/dashboard: "true"
+    networking.knative.dev/visibility: "cluster-local"
+spec:
+  predictor:
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      name: ""
+      resources:
+      {{- if hasKey $model "resources" }}
+      {{- toYaml $model.resources | nindent 8 }}
+      {{- else }}
+        limits:
+          cpu: "2"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 4Gi
+          nvidia.com/gpu: "1"
+      {{- end }}
+      runtime: {{ $root.Values.servingRuntime.name }}
+      storageUri: pvc://{{ $key }}/
+      args:
+      - --model
+      - {{ $model.id }}
+      - --served-model-name
+      - {{ $model.id }}
+      {{- with $model.args }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with $model.env }}
+      env:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+    tolerations:
+    {{- if hasKey $model "tolerations" }}
+    {{- toYaml $model.tolerations | nindent 4 }}
+    {{- else }}
+    - key: nvidia.com/gpu
+      effect: NoSchedule
+      operator: Exists
+    {{- end }}
+{{- end }}
+{{- end }}

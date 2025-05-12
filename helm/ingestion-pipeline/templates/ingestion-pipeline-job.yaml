@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{- include "ingestion-pipeline.name" . }}"
+  labels: 
+    pipelines.kubeflow.org/v2_component: 'true'
+spec:
+  selector:
+  template:
+    metadata:
+      labels:
+        pipelines.kubeflow.org/v2_component: 'true'
+    spec:
+      initContainers:
+        - name: wait-for-pipeline
+          image: "image-registry.openshift-image-registry.svc:5000/openshift/tools:latest"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              url="https://ds-pipeline-dspa:8888/apis/v2beta1/healthz"
+              echo "Waiting for $url..."
+              until curl -ksf "$url"; do
+                echo "Still waiting for $url ..."
+                sleep 10
+              done
+              echo "\nData science pipeline configured."
+      containers:
+        - args:
+            - -ec
+            - |-
+              pip install kfp[kubernetes]
+              python3 /ingestion-script/ingestion.py
+          command:
+            - /bin/bash
+          env:
+            - name: LLAMASTACK_BASE_URL
+              value: "http://llamastack.{{ .Release.Namespace }}.svc.cluster.local:8321"
+            - name: DS_PIPELINE_URL
+              value: "https://ds-pipeline-dspa.{{ .Release.Namespace }}.svc.cluster.local:8888"
+            - name: SOURCE
+              value: "{{ .Values.source }}"
+          image: python:3.10-slim
+          imagePullPolicy: IfNotPresent
+          name: create-ingestion-pipeline
+          volumeMounts:
+            - mountPath: /ingestion-script
+              name: ingestion-python-script-volume
+            - mountPath: /.local
+              name: dot-local
+      restartPolicy: Never
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: "{{- include "ingestion-pipeline.name" . }}-pipeline-config"
+          name: ingestion-python-script-volume
+        - emptyDir: {}
+          name: dot-local
