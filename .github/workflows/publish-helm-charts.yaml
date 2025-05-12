@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'helm/**'
-      - '.github/workflows/publish-helm-charts.yml'
+      - '.github/workflows/publish-helm-charts.yaml'
 
 permissions:
   contents: read
