@@ -42,6 +42,12 @@ models:
   llama-3-2-1b-instruct:
     id: meta-llama/Llama-3.2-1B-Instruct
     enabled: false
+    # A default "nvidia.com/gpu" toleration is implemented in the
+    # inference-service.yaml template and can be overriden as follows:
+    # tolerations:
+    #   - key: nvidia.com/gpu
+    #     effect: NoSchedule
+    #     operator: Exists
     args:
       - --enable-auto-tool-choice
       - --chat-template
