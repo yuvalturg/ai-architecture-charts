@@ -72,3 +72,10 @@ secret:
   password: minio_rag_password
   host: minio
   port: "9000"
+
+# Upload sample files to the minio bucket 
+sampleFileUpload:
+  enabled: false
+  bucket: documents
+  urls: []
+ 
