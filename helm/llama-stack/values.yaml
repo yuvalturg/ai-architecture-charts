@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: llamastack/distribution-remote-vllm
   pullPolicy: IfNotPresent
-  tag: "0.2.5"
+  tag: "0.2.6"
 
 imagePullSecrets: []
 nameOverride: "llamastack"
