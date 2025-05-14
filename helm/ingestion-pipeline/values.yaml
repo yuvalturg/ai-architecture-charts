@@ -8,8 +8,8 @@ name: "demo-rag-vector-db"
 version: "1.0"
 
 S3:
-  access_key_id: access_key_id
-  secret_access_key: secret_access_key
+  access_key_id: minio_rag_user
+  secret_access_key: minio_rag_password
   bucket_name: documents
   endpoint_url: http://minio:9000
   region: us-east-1

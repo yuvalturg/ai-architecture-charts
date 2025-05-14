@@ -25,7 +25,15 @@ spec:
                 echo "Still waiting for $url ..."
                 sleep 10
               done
-              echo "\nData science pipeline configured."
+              echo "Data science pipeline configured"
+
+              url="http://llamastack:8321"
+              echo "Waiting for $url..."
+              until curl -ksf "$url"; do
+                echo "Still waiting for $url ..."
+                sleep 10
+              done
+              echo "Llama Stack server is running"
       containers:
         - args:
             - -ec
