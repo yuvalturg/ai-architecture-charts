@@ -27,7 +27,7 @@ spec:
               done
               echo "Data science pipeline configured"
 
-              url="http://llamastack:8321"
+              url="http://llamastack:8321/v1/models"
               echo "Waiting for $url..."
               until curl -ksf "$url"; do
                 echo "Still waiting for $url ..."
