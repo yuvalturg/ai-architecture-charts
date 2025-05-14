@@ -12,6 +12,7 @@ metadata:
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    storage.kserve.io/readonly: "false"
   labels:
     opendatahub.io/dashboard: "true"
     networking.knative.dev/visibility: "cluster-local"
@@ -51,6 +52,8 @@ spec:
       {{- with $model.env }}
       env:
         {{- toYaml . | nindent 6 }}
+        - name: HOME
+          value: /mnt/models
       {{- end }}
     tolerations:
     {{- if hasKey $model "tolerations" }}

@@ -18,21 +18,16 @@ servingRuntime:
   volumeMounts:
     - name: shm
       mountPath: /dev/shm
-    - name: vllm-home
-      mountPath: /vllm
-    - name: vllm-chat-templates
-      mountPath: /chat-templates
+    - name: vllm-utils
+      mountPath: /vllm-utils
   volumes:
     - name: shm
       emptyDir:
         medium: Memory
         sizeLimit: 2Gi
-    - name: vllm-home
-      emptyDir:
-        sizeLimit: 5Gi
-    - name: vllm-chat-templates
+    - name: vllm-utils
       configMap:
-        name: vllm-chat-templates
+        name: vllm-utils
 
 secret:
   enabled: true
@@ -45,7 +40,7 @@ models:
     args:
       - --enable-auto-tool-choice
       - --chat-template
-      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - /vllm-utils/tool_chat_template_llama3.2_json.jinja
       - --tool-call-parser
       - llama3_json
       - --max-model-len
@@ -64,7 +59,7 @@ models:
     args:
       - --enable-auto-tool-choice
       - --chat-template
-      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - /vllm-utils/tool_chat_template_llama3.2_json.jinja
       - --tool-call-parser
       - llama3_json
       - --max-model-len
@@ -88,7 +83,7 @@ models:
       - "14336"
       - --enable-auto-tool-choice
       - --chat-template
-      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - /vllm-utils/tool_chat_template_llama3.2_json.jinja
       - --tool-call-parser
       - llama3_json
 
@@ -110,7 +105,7 @@ models:
       - "4096"
       - --enable-auto-tool-choice
       - --chat-template
-      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - /vllm-utils/tool_chat_template_llama3.2_json.jinja
       - --tool-call-parser
       - llama3_json
       - --swap-space
@@ -126,7 +121,7 @@ models:
       - compressed-tensors
       - --enable-auto-tool-choice
       - --chat-template
-      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - /vllm-utils/tool_chat_template_llama3.2_json.jinja
       - --tool-call-parser
       - llama3_json
       - --max-model-len
