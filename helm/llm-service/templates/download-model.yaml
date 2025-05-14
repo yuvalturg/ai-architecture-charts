@@ -1,0 +1,36 @@
+{{- $models := include "llm-service.mergeModels" . | fromJson }}
+{{- $deployModels := include "llm-service.deployModels" $models | fromJson }}
+{{- range $key, $model := $deployModels }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: download-{{ $key }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      containers:
+        - command:
+          - huggingface-cli
+          - snapshot-download
+          - {{ $model.id }}
+          - --local-dir
+          - /mnt/{{ $key }}
+          envFrom:
+            - secretRef:
+                name: huggingface-secret
+          image: huggingface/downloader:0.17.3
+          imagePullPolicy: IfNotPresent
+          name: download-model
+          volumeMounts:
+            - mountPath: /mnt/{{ $key }}
+              name: {{ $key }}
+      volumes:
+        - name: {{ $key }}
+          persistentVolumeClaim:
+            claimName: {{ $key }}
+      restartPolicy: OnFailure
+{{- end }}

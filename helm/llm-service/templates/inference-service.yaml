@@ -1,7 +1,7 @@
 {{- $root := . }}
 {{- $models := include "llm-service.mergeModels" . | fromJson }}
-{{- range $key, $model := $models }}
-{{- if and $model.enabled (not $model.url) }}
+{{- $deployModels := include "llm-service.deployModels" $models | fromJson }}
+{{- range $key, $model := $deployModels }}
 ---
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -12,7 +12,6 @@ metadata:
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
-    storage.kserve.io/readonly: "false"
   labels:
     opendatahub.io/dashboard: "true"
     networking.knative.dev/visibility: "cluster-local"
@@ -61,5 +60,4 @@ spec:
       effect: NoSchedule
       operator: Exists
     {{- end }}
-{{- end }}
 {{- end }}

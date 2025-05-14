@@ -1,6 +1,6 @@
 {{- $models := include "llm-service.mergeModels" . | fromJson }}
-{{- range $key, $model := $models }}
-{{- if and $model.enabled (not $model.url) }}
+{{- $deployModels := include "llm-service.deployModels" $models | fromJson }}
+{{- range $key, $model := $deployModels }}
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -15,5 +15,4 @@ spec:
     requests:
       storage: {{ $model.storageSize | default "50Gi" }}
   volumeMode: Filesystem
-{{- end }}
 {{- end }}
