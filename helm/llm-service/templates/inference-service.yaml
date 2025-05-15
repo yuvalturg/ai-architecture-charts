@@ -20,8 +20,8 @@ metadata:
     networking.knative.dev/visibility: "cluster-local"
 spec:
   predictor:
-    maxReplicas: {{ $model.minReplicas | default 1 }}
-    minReplicas: {{ $model.maxReplicas | default 1 }}
+    maxReplicas: {{ $model.maxReplicas | default 1 }}
+    minReplicas: {{ $model.minReplicas | default 1 }}
     model:
       modelFormat:
         name: vLLM
