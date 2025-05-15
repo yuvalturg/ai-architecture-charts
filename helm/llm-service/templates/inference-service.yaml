@@ -12,6 +12,9 @@ metadata:
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    {{- if $root.Values.rawDeploymentMode }}
+    serving.kserve.io/deploymentMode: RawDeployment
+    {{- end }}
   labels:
     opendatahub.io/dashboard: "true"
     networking.knative.dev/visibility: "cluster-local"

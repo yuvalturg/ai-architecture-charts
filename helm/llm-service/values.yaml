@@ -1,4 +1,5 @@
 device: gpu
+rawDeploymentMode: true
 
 servingRuntime:
   name: vllm-serving-runtime
