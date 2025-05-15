@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-       {{- include "minio.labels" . | nindent 4 }}
+       {{- include "minio.labels" . | nindent 8 }}
     spec:
       containers:
         - args:
