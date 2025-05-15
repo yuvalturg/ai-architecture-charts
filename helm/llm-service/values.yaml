@@ -18,21 +18,20 @@ servingRuntime:
   volumeMounts:
     - name: shm
       mountPath: /dev/shm
-    - name: vllm-home
-      mountPath: /vllm
     - name: vllm-chat-templates
       mountPath: /chat-templates
+    - name: vllm-home
+      mountPath: /vllm
   volumes:
     - name: shm
       emptyDir:
         medium: Memory
         sizeLimit: 2Gi
-    - name: vllm-home
-      emptyDir:
-        sizeLimit: 5Gi
     - name: vllm-chat-templates
       configMap:
         name: vllm-chat-templates
+    - name: vllm-home
+      emptyDir: {}
 
 secret:
   enabled: true

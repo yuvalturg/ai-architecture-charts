@@ -27,7 +27,7 @@ spec:
     - --port
     - "8080"
     - --download-dir
-    - /mnt/models
+    - /vllm/model
     {{-  with .Values.servingRuntime.env }}
     env:
       {{- toYaml . | nindent 4 }}

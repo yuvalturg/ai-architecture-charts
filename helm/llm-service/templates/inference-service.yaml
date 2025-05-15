@@ -12,14 +12,13 @@ metadata:
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
-    storage.kserve.io/readonly: "false"
   labels:
     opendatahub.io/dashboard: "true"
     networking.knative.dev/visibility: "cluster-local"
 spec:
   predictor:
-    maxReplicas: 1
-    minReplicas: 1
+    maxReplicas: {{ $model.minReplicas | default 1 }}
+    minReplicas: {{ $model.maxReplicas | default 1 }}
     model:
       modelFormat:
         name: vLLM
@@ -37,10 +36,10 @@ spec:
           cpu: "1"
           memory: 4Gi
           nvidia.com/gpu: "1"
+          ephemeral-storage: {{ $model.storageSize | default "50Gi" }}
       {{- end }}
       {{- end }}
       runtime: {{ $root.Values.servingRuntime.name }}
-      storageUri: pvc://{{ $key }}/
       args:
       - --model
       - {{ $model.id }}
