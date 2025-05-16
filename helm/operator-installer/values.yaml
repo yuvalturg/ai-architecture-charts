@@ -1,0 +1,9 @@
+operatorGroup:
+  name: op-install
+
+subscriptions:
+  kafka:
+    name: strimzi-kafka-operator
+    channel: stable
+    source: community-operators
+    sourceNamespace: openshift-marketplace

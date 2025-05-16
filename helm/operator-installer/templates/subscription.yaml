@@ -1,0 +1,13 @@
+{{- $root := . }}
+{{- range $key, $subscription := .Values.subscriptions }}
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: {{ $key }}
+  namespace: {{ $subscription.namespace | default $root.Release.Namespace }}
+spec:
+  channel: {{ $subscription.channel }}
+  name: {{ $subscription.name }}
+  source: {{ $subscription.source }}
+  sourceNamespace: {{ $subscription.sourceNamespace }}
+{{- end }}
