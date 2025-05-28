@@ -8,7 +8,7 @@ rawDeploymentMode: true
 image:
   repository: llamastack/distribution-remote-vllm
   pullPolicy: IfNotPresent
-  tag: "0.2.6"
+  tag: "0.2.8"
 
 imagePullSecrets: []
 nameOverride: "llamastack"

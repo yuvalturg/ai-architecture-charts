@@ -14,7 +14,7 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     import boto3
     import tempfile
     import json
-    
+
     # S3 Config
     bucket_name = os.environ.get('BUCKET_NAME')
     minio_endpoint = os.environ.get('ENDPOINT_URL')
@@ -49,43 +49,43 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
             print(f"Downloading: {key} -> {file_path}")
             s3.download_file(bucket_name, key, file_path)
             downloaded_files.append(file_path)
-    
+
     print(f"Downloaded {len(downloaded_files)} files to {download_dir}")
-    
+
     if not downloaded_files:
         raise Exception(f"No files found in bucket: {bucket_name}. Please check your bucket configuration.")
-    
+
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
     print(f"Created output directory: {output_dir}")
-    
+
     # Print directory contents to debug
     print(f"Contents of temp dir before copy: {os.listdir(temp_dir)}")
     print(f"Contents of download dir before copy: {os.listdir(download_dir)}")
-    
+
     # Copy all downloaded files to the output directory and create a manifest
     file_manifest = []
     for file_path in downloaded_files:
         if os.path.exists(file_path):
             filename = os.path.basename(file_path)
             output_path = os.path.join(output_dir, filename)
-            
+
             # Debug output
             print(f"Copying from {file_path} (exists: {os.path.exists(file_path)}) to {output_path}")
-            
+
             # Copy the file
             shutil.copy2(file_path, output_path)
             file_manifest.append(filename)
             print(f"Successfully copied {file_path} to {output_path}")
-    
+
     # Write a manifest file to track what was downloaded
     manifest_path = os.path.join(output_dir, "manifest.json")
     with open(manifest_path, "w") as f:
         json.dump(file_manifest, f)
-    
+
     print(f"Created file manifest at {manifest_path} with {len(file_manifest)} files")
     print(f"Final contents of output dir: {os.listdir(output_dir)}")
-    
+
     # Clean up the temp directory
     shutil.rmtree(temp_dir, ignore_errors=True)
     print(f"Cleaned up temporary directory: {temp_dir}")
@@ -93,26 +93,26 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
 @dsl.component(
     base_image="python:3.10",
     packages_to_install=[
-        "llama-stack-client==0.2.6", 
+        "llama-stack-client==0.2.8",
         "docling",
         "docling-core"
     ])
 def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPath()):
     import os
     import json
-    
+
     print(f"Input directory: {input_dir}")
     if os.path.exists(input_dir):
         print(f"Contents of input directory: {os.listdir(input_dir)}")
     else:
         print(f"Input directory does not exist: {input_dir}")
-    
+
     # Set EasyOCR path to a writeable directory BEFORE importing docling
     os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
 
     from llama_stack_client import LlamaStackClient
     from llama_stack_client.types import Document as LlamaStackDocument
-    
+
     # Import docling libraries
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.datamodel.base_models import InputFormat
@@ -126,20 +126,20 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
     embedding_model = os.environ.get('EMBEDDING_MODEL')
 
     vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
-    
+
     # Read the manifest created by the fetch phase to get the list of files
     manifest_path = os.path.join(input_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         raise FileNotFoundError(f"Manifest file not found at {manifest_path}")
-        
+
     with open(manifest_path, "r") as f:
         file_manifest = json.load(f)
-    
+
     print(f"Processing {len(file_manifest)} files from the manifest")
-    
+
     # Get the full paths of all input files
     input_files = [os.path.join(input_dir, filename) for filename in file_manifest]
-    
+
     # Verify files exist
     for file_path in input_files:
         if not os.path.exists(file_path):
@@ -173,12 +173,12 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
         if not os.path.exists(file_path):
             print(f"File doesn't exist: {file_path}")
             continue
-            
+
         file_size = os.path.getsize(file_path)
         if file_size == 0:
             print(f"Skipping empty file: {file_path} (0 bytes)")
             continue
-        
+
         print(f"Processing {file_path} with docling...")
         try:
             docling_doc = converter.convert(source=file_path).document
@@ -204,7 +204,7 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
                         )
                     )
             print(f"Created {chunk_count} chunks from {file_path}")
-            
+
         except Exception as e:
             error_message = str(e)
             print(f"Error processing {file_path}: {error_message}")
@@ -248,20 +248,20 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
 @dsl.component(
     base_image="python:3.10",
     packages_to_install=[
-        "llama-stack-client==0.2.6", 
+        "llama-stack-client==0.2.6",
         "docling",
         "docling-core"
     ])
 def urls_to_pgvector(llamastack_base_url: str):
     import os
     import json
-  
+
     # Set EasyOCR path to a writeable directory BEFORE importing docling
     os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
 
     from llama_stack_client import LlamaStackClient
     from llama_stack_client.types import Document as LlamaStackDocument
-    
+
     # Import docling libraries
     from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.datamodel.base_models import InputFormat
@@ -275,7 +275,7 @@ def urls_to_pgvector(llamastack_base_url: str):
     embedding_model = os.environ.get('EMBEDDING_MODEL')
 
     vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
-    
+
     # Step 2: Process files with docling
     # Setup docling components
     pipeline_options = PdfPipelineOptions()
@@ -326,7 +326,7 @@ def urls_to_pgvector(llamastack_base_url: str):
                         )
                     )
             print(f"Created {chunk_count} chunks from {file_path}")
-            
+
         except Exception as e:
             error_message = str(e)
             print(f"Error processing {file_path}: {error_message}")
@@ -395,7 +395,7 @@ def s3_pipeline():
       task=fetch_task,
       secret_name="REPLACE_SECRET_NAME",
       secret_key_to_env=secret_key_to_env)
-      
+
   kubernetes.use_secret_as_env(
       task=process_task,
       secret_name="REPLACE_SECRET_NAME",
