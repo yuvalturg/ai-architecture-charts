@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   package:
+    if: github.repository == 'rh-ai-kickstart/ai-architecture-charts'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
