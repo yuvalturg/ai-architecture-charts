@@ -1,11 +1,13 @@
-# create-pvc.yaml
+{{- if .Values.notebook.create }}
+# This pvc will be used by the rag-pipeline-notebook
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: pipeline-vol
+  name: {{ .Values.notebook.pvcName }}
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
+{{- end }}

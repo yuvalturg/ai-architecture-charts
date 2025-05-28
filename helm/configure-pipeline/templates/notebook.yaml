@@ -1,3 +1,4 @@
+{{- if .Values.notebook.create }}
 apiVersion: kubeflow.org/v1
 kind: Notebook
 metadata:
@@ -87,7 +88,8 @@ spec:
       volumes:
         - name: pipeline-vol
           persistentVolumeClaim:
-            claimName: {{ .Values.pvc.name }}
+            claimName: {{ .Values.notebook.pvcName }}
         - emptyDir:
             medium: Memory
           name: shm
+{{- end }}

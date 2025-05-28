@@ -1,3 +1,9 @@
+notebook:
+  create: true
+  image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2024.2
+  repo: "https://github.com/RHEcosystemAppEng/RAG-Blueprint.git"
+  pvcName: "pipeline-vol"
+
 minio:
   user: minio_rag_user
   password: minio_rag_password
@@ -5,16 +11,6 @@ minio:
   port: 9000
   region: us-east-1
   bucket_name: llama
-
-notebook:
-  image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2024.2
-  repo: "https://github.com/RHEcosystemAppEng/RAG-Blueprint.git"
-
-kfp:
-  sdkImage: "quay.io/kubeflow/pipelines-sdk:2.1.0"
-
-pvc:
-  name: "pipeline-vol"
 
 # For notebook
 embedding_model: all-MiniLM-L6-v2
