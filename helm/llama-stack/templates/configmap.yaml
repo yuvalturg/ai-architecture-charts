@@ -34,7 +34,7 @@ data:
           url: {{ $model.url }}
           api_token: {{ $model.apiToken | default "fake" }}
           max_tokens: {{ $model.maxTokens | default 4096 }}
-          tls_verify: ${env.VLLM_TLS_VERIFY:false}
+          tls_verify: {{ $model.tlsVerify | default false }}
       {{- end }}
       {{- end }}
       - provider_id: sentence-transformers
