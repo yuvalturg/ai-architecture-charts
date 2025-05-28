@@ -94,6 +94,8 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     base_image="python:3.10",
     packages_to_install=[
         "llama-stack-client==0.2.8",
+        "fire",
+        "requests",
         "docling",
         "docling-core"
     ])
@@ -249,6 +251,8 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
     base_image="python:3.10",
     packages_to_install=[
         "llama-stack-client==0.2.6",
+        "fire",
+        "requests",
         "docling",
         "docling-core"
     ])
