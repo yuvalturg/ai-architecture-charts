@@ -1,7 +1,10 @@
+import os
+import time
+
 from kfp import dsl
 from kfp import Client
 from kfp import compiler
-import os
+
 
 @dsl.component(
     base_image="python:3.10",
@@ -451,16 +454,35 @@ client = Client(
 )
 
 # 3. Upload pipeline
-uploaded_pipeline = client.upload_pipeline(
-  pipeline_package_path=pipeline_yaml,
-  pipeline_name="REPLACE_PIPELINE_NAME"
-)
+pipeline_name = "REPLACE_PIPELINE_NAME"
+pipeline_id = client.get_pipeline_id(pipeline_name)
+
+experiments = client.list_experiments()
+experiment_id = experiments.experiments[0].experiment_id
+
+if pipeline_id is None:
+    uploaded_pipeline = client.upload_pipeline(
+        pipeline_package_path=pipeline_yaml,
+        pipeline_name=pipeline_name,
+    )
+    pipeline_id = uploaded_pipeline.pipeline_id
+    versions = client.list_pipeline_versions(pipeline_id)
+    version_id = [v.pipeline_version_id for v in versions.pipeline_versions if v.display_name == pipeline_name][0]
+else:
+    version_name = f"{pipeline_name}-{time.strftime('%Y%m%d-%H%M%S')}"
+    uploaded_pipeline = client.upload_pipeline_version(
+        pipeline_package_path=pipeline_yaml,
+        pipeline_id=pipeline_id,
+        pipeline_version_name=version_name,
+    )
+    version_id = uploaded_pipeline.pipeline_version_id
 
 # 4. Run the pipeline
-run = client.create_run_from_pipeline_package(
-  pipeline_file=pipeline_yaml,
-  arguments={},
-  run_name="fetch-store-run"
+run = client.run_pipeline(
+    pipeline_id=pipeline_id,
+    version_id=version_id,
+    experiment_id=experiment_id,
+    job_name="fetch-store-run",
 )
 
 print(f"Pipeline submitted! Run ID: {run.run_id}")
