@@ -15,13 +15,11 @@ S3:
   region: us-east-1
 
 GITHUB:
-  url: https://github.com/
-  path: /docs
+  url: https://github.com/rh-ai-kickstart/RAG.git
+  path: docs
   token: auth_token
-  branch: ""
+  branch: main
 
-URL: 
-  URLS: 
+URLS:
   - "https://arxiv.org/pdf/2408.09869"
   - "https://github.com/docling-project/docling/blob/main/tests/data/pdf/2206.01062.pdf"
-
