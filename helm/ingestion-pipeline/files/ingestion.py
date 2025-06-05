@@ -6,7 +6,7 @@ from kfp import Client
 from kfp import compiler
 
 # Values from helm chart
-LLAMA_STACK_VERSION = '{{ .Chart.Version }}'
+LLAMA_STACK_VERSION = '{{ .Chart.AppVersion }}'
 SECRET_NAME = '{{ include "ingestion-pipeline.name" . | trim }}'
 PIPELINE_NAME = SECRET_NAME + '-pipeline'
 
@@ -100,7 +100,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
 @dsl.component(
     base_image="python:3.10",
     packages_to_install=[
-        "llama-stack-client=={{ .Chart.Version }}",
+        f"llama-stack-client=={LLAMA_STACK_VERSION}",
         "fire",
         "requests",
         "docling",

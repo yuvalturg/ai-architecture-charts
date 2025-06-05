@@ -8,7 +8,8 @@ rawDeploymentMode: true
 image:
   repository: llamastack/distribution-remote-vllm
   pullPolicy: IfNotPresent
-  tag: "0.2.8"
+  # Use Chart.AppVersion for image tag, so no need to set it here
+  # tag: "0.2.8"
 
 imagePullSecrets: []
 nameOverride: "llamastack"
