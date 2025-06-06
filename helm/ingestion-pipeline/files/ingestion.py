@@ -5,6 +5,11 @@ from kfp import dsl
 from kfp import Client
 from kfp import compiler
 
+# Values from helm chart
+LLAMA_STACK_VERSION = '{{ .Chart.AppVersion }}'
+SECRET_NAME = '{{ include "ingestion-pipeline.name" . | trim }}'
+PIPELINE_NAME = SECRET_NAME + '-pipeline'
+
 
 @dsl.component(
     base_image="python:3.10",
@@ -95,7 +100,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
 @dsl.component(
     base_image="python:3.10",
     packages_to_install=[
-        "llama-stack-client==0.2.8",
+        f"llama-stack-client=={LLAMA_STACK_VERSION}",
         "fire",
         "requests",
         "docling",
@@ -244,13 +249,13 @@ def s3_pipeline():
 
     kubernetes.use_secret_as_env(
         task=fetch_task,
-        secret_name="REPLACE_SECRET_NAME",
+        secret_name=SECRET_NAME,
         secret_key_to_env=secret_key_to_env
     )
 
     kubernetes.use_secret_as_env(
         task=store_task,
-        secret_name="REPLACE_SECRET_NAME",
+        secret_name=SECRET_NAME,
         secret_key_to_env=secret_key_to_env
     )
 
@@ -276,7 +281,7 @@ def url_pipeline():
 
     kubernetes.use_secret_as_env(
         task=store_task,
-        secret_name="REPLACE_SECRET_NAME",
+        secret_name=SECRET_NAME,
         secret_key_to_env=secret_key_to_env
     )
 
@@ -305,13 +310,13 @@ def github_pipeline():
 
     kubernetes.use_secret_as_env(
         task=fetch_task,
-        secret_name="REPLACE_SECRET_NAME",
+        secret_name=SECRET_NAME,
         secret_key_to_env=secret_key_to_env
     )
 
     kubernetes.use_secret_as_env(
         task=store_task,
-        secret_name="REPLACE_SECRET_NAME",
+        secret_name=SECRET_NAME,
         secret_key_to_env=secret_key_to_env
     )
 
@@ -345,8 +350,7 @@ client = Client(
 )
 
 # 3. Upload pipeline
-pipeline_name = "REPLACE_PIPELINE_NAME"
-pipeline_id = client.get_pipeline_id(pipeline_name)
+pipeline_id = client.get_pipeline_id(PIPELINE_NAME)
 
 experiments = client.list_experiments()
 experiment_id = experiments.experiments[0].experiment_id
@@ -354,13 +358,13 @@ experiment_id = experiments.experiments[0].experiment_id
 if pipeline_id is None:
     uploaded_pipeline = client.upload_pipeline(
         pipeline_package_path=pipeline_yaml,
-        pipeline_name=pipeline_name,
+        pipeline_name=PIPELINE_NAME,
     )
     pipeline_id = uploaded_pipeline.pipeline_id
     versions = client.list_pipeline_versions(pipeline_id)
-    version_id = [v.pipeline_version_id for v in versions.pipeline_versions if v.display_name == pipeline_name][0]
+    version_id = [v.pipeline_version_id for v in versions.pipeline_versions if v.display_name == PIPELINE_NAME][0]
 else:
-    version_name = f"{pipeline_name}-{time.strftime('%Y%m%d-%H%M%S')}"
+    version_name = f"{PIPELINE_NAME}-{time.strftime('%Y%m%d-%H%M%S')}"
     uploaded_pipeline = client.upload_pipeline_version(
         pipeline_package_path=pipeline_yaml,
         pipeline_id=pipeline_id,
