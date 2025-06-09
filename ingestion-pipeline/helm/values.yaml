@@ -1,0 +1,80 @@
+# Default values for llama-stack.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: quay.io/ecosystem-appeng/ingestion-pipeline
+  pullPolicy: IfNotPresent
+  # Use Chart.AppVersion for image tag, so no need to set it here
+  # tag: "0.2.8"
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  automount: true
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+strategy:
+  type: Recreate
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+args:
+env: {}
+
+resources: {}
+
+autoscaling:
+  enabled: false
+
+# Additional volumes on the output Deployment definition.
+volumes: {}
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+defaultPipeline:
+  enabled: true
+  # options are [S3, GITHUB, URL]
+  source: S3
+  # embedding model to use for creating embeddings
+  embedding_model: "all-MiniLM-L6-v2"
+  # name of the vector db with version, pipeline will be created with pipeline_red_hat_openshift
+  name: "demo-rag-vector-db"
+  # version of the knowledgebase
+  version: "1.0"
+
+  S3:
+    access_key_id: minio_rag_user
+    secret_access_key: minio_rag_password
+    bucket_name: documents
+    endpoint_url: http://minio:9000
+    region: us-east-1
+
+  GITHUB:
+    url: https://github.com/rh-ai-kickstart/RAG.git
+    path: docs
+    token: auth_token
+    branch: main
+
+  URLS:
+    - "https://arxiv.org/pdf/2408.09869"
+    - "https://github.com/docling-project/docling/blob/main/tests/data/pdf/2206.01062.pdf"

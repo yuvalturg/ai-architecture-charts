@@ -1,0 +1,103 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ingestion-pipeline.fullname" . }}
+  labels:
+    {{- include "ingestion-pipeline.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ingestion-pipeline.selectorLabels" . | nindent 6 }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ingestion-pipeline.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ingestion-pipeline.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-services
+          image: "image-registry.openshift-image-registry.svc:5000/openshift/tools:latest"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              url="https://ds-pipeline-dspa:8888/apis/v2beta1/healthz"
+              echo "Waiting for $url..."
+              until curl -ksf "$url"; do
+                echo "Still waiting for $url ..."
+                sleep 10
+              done
+              echo "Data science pipeline configured"
+
+              url="http://llamastack:8321/v1/models"
+              echo "Waiting for $url..."
+              until curl -ksf "$url"; do
+                echo "Still waiting for $url ..."
+                sleep 10
+              done
+              echo "Llama Stack server is running"
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: LLAMASTACK_BASE_URL
+              value: "http://llamastack.{{ .Release.Namespace }}.svc.cluster.local:8321"
+            - name: DS_PIPELINE_URL
+              value: "https://ds-pipeline-dspa.{{ .Release.Namespace }}.svc.cluster.local:8888"
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

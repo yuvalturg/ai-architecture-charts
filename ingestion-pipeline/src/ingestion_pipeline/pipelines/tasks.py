@@ -1,23 +1,17 @@
-import os
-import time
-
 from kfp import dsl
-from kfp import Client
-from kfp import compiler
 
-# Values from helm chart
-LLAMA_STACK_VERSION = '{{ .Chart.AppVersion }}'
-SECRET_NAME = '{{ include "ingestion-pipeline.name" . | trim }}'
-PIPELINE_NAME = SECRET_NAME + '-pipeline'
+BASE_IMAGE="python:3.10"
+LLAMA_STACK_VERSION="0.2.9"
 
 
 @dsl.component(
-    base_image="python:3.10",
+    base_image=BASE_IMAGE,
     packages_to_install=[
         "boto3"
     ])
 def fetch_from_s3(output_dir: dsl.OutputPath()):
     import os
+
     import boto3
 
     # S3 Config
@@ -62,21 +56,22 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     print(f"Contents of output directory: {os.listdir(output_dir)}")
 
 
-@dsl.component(base_image="python:3.10")
+@dsl.component(base_image=BASE_IMAGE)
 def fetch_from_urls(output_dir: dsl.OutputPath()):
     print(f"Storing documents will fetch from URLS env var")
 
 
 @dsl.component(
-    base_image="python:3.10",
+    base_image=BASE_IMAGE,
     packages_to_install=[
         "GitPython"
     ])
 def fetch_from_github(output_dir: dsl.OutputPath()):
     import os
-    import git
-    import tempfile
     import shutil
+    import tempfile
+
+    import git
     os.makedirs(output_dir, exist_ok=True)
     token = os.getenv("GIT_TOKEN")
     url = os.getenv("GIT_URL")
@@ -98,7 +93,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
 
 
 @dsl.component(
-    base_image="python:3.10",
+    base_image=BASE_IMAGE,
     packages_to_install=[
         f"llama-stack-client=={LLAMA_STACK_VERSION}",
         "fire",
@@ -110,15 +105,15 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
     import os
     from pathlib import Path
 
-    from llama_stack_client import LlamaStackClient
-    from llama_stack_client.types import Document as LlamaStackDocument
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
 
     # Import docling libraries
     from docling.document_converter import DocumentConverter, PdfFormatOption
-    from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
     from docling_core.types.doc.labels import DocItemLabel
+    from llama_stack_client import LlamaStackClient
+    from llama_stack_client.types import Document as LlamaStackDocument
 
     os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
 
@@ -222,162 +217,3 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
     except Exception as e:
         print("Embedding insert failed:", e)
         raise Exception(f"Failed to insert documents into vector DB: {e}")
-
-
-@dsl.pipeline(name="fetch-and-store-pipeline")
-def s3_pipeline():
-    from kfp import kubernetes
-    secret_key_to_env = {
-            'SOURCE': 'SOURCE',
-            'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-            'NAME': 'NAME',
-            'VERSION': 'VERSION',
-            'ACCESS_KEY_ID': 'ACCESS_KEY_ID',
-            'SECRET_ACCESS_KEY': 'SECRET_ACCESS_KEY',
-            'ENDPOINT_URL': 'ENDPOINT_URL',
-            'BUCKET_NAME': 'BUCKET_NAME',
-            'REGION': 'REGION'
-    }
-
-    fetch_task = fetch_from_s3()
-    fetch_task.set_caching_options(False)
-    store_task = store_documents(
-        llamastack_base_url=os.environ["LLAMASTACK_BASE_URL"],
-        input_dir=fetch_task.outputs["output_dir"]
-    )
-    store_task.set_caching_options(False)
-
-    kubernetes.use_secret_as_env(
-        task=fetch_task,
-        secret_name=SECRET_NAME,
-        secret_key_to_env=secret_key_to_env
-    )
-
-    kubernetes.use_secret_as_env(
-        task=store_task,
-        secret_name=SECRET_NAME,
-        secret_key_to_env=secret_key_to_env
-    )
-
-
-@dsl.pipeline(name="fetch-and-store-pipeline")
-def url_pipeline():
-    from kfp import kubernetes
-    secret_key_to_env = {
-        'SOURCE': 'SOURCE',
-        'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-        'NAME': 'NAME',
-        'VERSION': 'VERSION',
-        'URLS': 'URLS'
-    }
-
-    fetch_task = fetch_from_urls()
-    fetch_task.set_caching_options(False)
-    store_task = store_documents(
-        llamastack_base_url=os.environ["LLAMASTACK_BASE_URL"],
-        input_dir=fetch_task.outputs["output_dir"]
-    )
-    store_task.set_caching_options(False)
-
-    kubernetes.use_secret_as_env(
-        task=store_task,
-        secret_name=SECRET_NAME,
-        secret_key_to_env=secret_key_to_env
-    )
-
-
-@dsl.pipeline(name="fetch-and-store-pipeline")
-def github_pipeline():
-    from kfp import kubernetes
-    secret_key_to_env = {
-        'SOURCE': 'SOURCE',
-        'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-        'NAME': 'NAME',
-        'VERSION': 'VERSION',
-        'URL': 'GIT_URL',
-        'PATH': 'GIT_PATH',
-        'TOKEN': 'GIT_TOKEN',
-        'BRANCH': 'GIT_BRANCH'
-    }
-
-    fetch_task = fetch_from_github()
-    fetch_task.set_caching_options(False)
-    store_task = store_documents(
-        llamastack_base_url=os.environ["LLAMASTACK_BASE_URL"],
-        input_dir=fetch_task.outputs["output_dir"]
-    )
-    store_task.set_caching_options(False)
-
-    kubernetes.use_secret_as_env(
-        task=fetch_task,
-        secret_name=SECRET_NAME,
-        secret_key_to_env=secret_key_to_env
-    )
-
-    kubernetes.use_secret_as_env(
-        task=store_task,
-        secret_name=SECRET_NAME,
-        secret_key_to_env=secret_key_to_env
-    )
-
-
-# 1. Compile pipeline to a file
-pipeline_yaml = "/tmp/fetch_chunk_embed_pipeline.yaml"
-
-if os.environ.get('SOURCE') == "S3":
-    print("S3 pipeline")
-    compiler.Compiler().compile(
-        pipeline_func=s3_pipeline,
-        package_path=pipeline_yaml
-    )
-elif os.environ.get('SOURCE') == "URL":
-    print("URL pipeline")
-    compiler.Compiler().compile(
-        pipeline_func=url_pipeline,
-        package_path=pipeline_yaml
-    )
-elif os.environ.get('SOURCE') == "GITHUB":
-    print("GITHUB pipeline")
-    compiler.Compiler().compile(
-        pipeline_func=github_pipeline,
-        package_path=pipeline_yaml
-    )
-
-# 2. Connect to KFP
-client = Client(
-    host=os.environ["DS_PIPELINE_URL"],
-    verify_ssl=False
-)
-
-# 3. Upload pipeline
-pipeline_id = client.get_pipeline_id(PIPELINE_NAME)
-
-experiments = client.list_experiments()
-experiment_id = experiments.experiments[0].experiment_id
-
-if pipeline_id is None:
-    uploaded_pipeline = client.upload_pipeline(
-        pipeline_package_path=pipeline_yaml,
-        pipeline_name=PIPELINE_NAME,
-    )
-    pipeline_id = uploaded_pipeline.pipeline_id
-    versions = client.list_pipeline_versions(pipeline_id)
-    version_id = [v.pipeline_version_id for v in versions.pipeline_versions if v.display_name == PIPELINE_NAME][0]
-else:
-    version_name = f"{PIPELINE_NAME}-{time.strftime('%Y%m%d-%H%M%S')}"
-    uploaded_pipeline = client.upload_pipeline_version(
-        pipeline_package_path=pipeline_yaml,
-        pipeline_id=pipeline_id,
-        pipeline_version_name=version_name,
-    )
-    version_id = uploaded_pipeline.pipeline_version_id
-
-# 4. Run the pipeline
-run = client.run_pipeline(
-    pipeline_id=pipeline_id,
-    version_id=version_id,
-    experiment_id=experiment_id,
-    job_name=f"fetch-store-run-{os.environ.get('SOURCE').lower()}"
-)
-
-print(f"Pipeline submitted! Run ID: {run.run_id}")
