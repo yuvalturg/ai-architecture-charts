@@ -1,0 +1,80 @@
+apiVersion: v1
+entries:
+  configure-pipeline:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-06-11T15:01:26.139086677Z"
+    description: A Helm chart for Kubernetes
+    digest: 39fdeff1a3cadd0eb931d8121a1d13c2b7d40b4b89d9790b08b725df0f37e10a
+    name: configure-pipeline
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/configure-pipeline-0.1.0.tgz
+    version: 0.1.0
+  ingestion-pipeline:
+  - apiVersion: v2
+    appVersion: 0.2.9
+    created: "2025-06-11T15:01:26.139391071Z"
+    description: A Helm chart for Kubernetes
+    digest: fe477e03ad42a614242a4e4732345ef03dfd33c53ed0bbdf04d3dbea6572f8c8
+    name: ingestion-pipeline
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/ingestion-pipeline-0.2.9.tgz
+    version: 0.2.9
+  llama-stack:
+  - apiVersion: v2
+    appVersion: 0.2.9
+    created: "2025-06-11T15:01:26.139906463Z"
+    description: A Helm chart for Kubernetes
+    digest: 9d7520bd8df989dfd2baf3cb6a48b5c230340aea0468fc07095cbd3909a4c41b
+    name: llama-stack
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/llama-stack-0.2.9.tgz
+    version: 0.2.9
+  llm-service:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-06-11T15:01:26.140414952Z"
+    description: A Helm chart for Kubernetes
+    digest: 67480790e10f35bde637db27b9a598d4c81937901791aa4de6c3bcaf43f000bb
+    name: llm-service
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/llm-service-0.1.0.tgz
+    version: 0.1.0
+  mcp-weather:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-06-11T15:01:26.140693617Z"
+    description: A Helm chart for Kubernetes
+    digest: 6f785328089cbb19c164723f317c14a195752979eb0ca0babbec96853bb68aeb
+    name: mcp-weather
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/mcp-weather-0.1.0.tgz
+    version: 0.1.0
+  minio:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-06-11T15:01:26.141052995Z"
+    description: A Helm chart for Kubernetes
+    digest: c9a251929a589b6f9edd1d806264f6dd080534f80f4e1c6e9a2c106b12300e5c
+    name: minio
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/minio-0.1.0.tgz
+    version: 0.1.0
+  pgvector:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2025-06-11T15:01:26.141428734Z"
+    description: A Helm chart for Kubernetes
+    digest: 2e3cc30dfc831f1509a8f3c35285f888d1113b1f80ff9f9f6d07e7aad0ee6271
+    name: pgvector
+    type: application
+    urls:
+    - https://rh-ai-kickstart.github.io/ai-architecture-charts/pgvector-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-06-11T15:01:26.138690018Z"
