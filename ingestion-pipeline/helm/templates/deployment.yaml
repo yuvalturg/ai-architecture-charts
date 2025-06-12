@@ -67,6 +67,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
+            - name: LLAMASTACK_VERSION
+              value: "{{ .Chart.AppVersion }}"
             - name: LLAMASTACK_BASE_URL
               value: "http://llamastack.{{ .Release.Namespace }}.svc.cluster.local:8321"
             - name: DS_PIPELINE_URL
