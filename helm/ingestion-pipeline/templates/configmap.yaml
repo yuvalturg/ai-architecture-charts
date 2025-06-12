@@ -1,7 +1,0 @@
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: "{{- include "ingestion-pipeline.name" . }}-pipeline-config"
-data:
-  ingestion.py: |
-{{ tpl (.Files.Get "files/ingestion.py") . | nindent 4 }}
