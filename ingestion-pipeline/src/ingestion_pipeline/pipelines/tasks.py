@@ -1,7 +1,9 @@
+import os
+
 from kfp import dsl
 
 BASE_IMAGE="python:3.10"
-LLAMA_STACK_VERSION="0.2.9"
+LLAMASTACK_VERSION=os.environ["LLAMASTACK_VERSION"]
 
 
 @dsl.component(
@@ -95,7 +97,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
 @dsl.component(
     base_image=BASE_IMAGE,
     packages_to_install=[
-        f"llama-stack-client=={LLAMA_STACK_VERSION}",
+        f"llama-stack-client=={LLAMASTACK_VERSION}",
         "fire",
         "requests",
         "docling",
@@ -145,7 +147,8 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
     # Process each file with docling (chunking)
     input_files = []
     if os.getenv("URLS"):
-        input_files = os.getenv("URLS","").strip("[]").split()
+        import ast
+        input_files = ast.literal_eval(os.getenv("URLS","[]"))
     else:
         input_files = [str(p) for p in Path(input_dir).iterdir() if p.is_file()]
     if not input_files:
