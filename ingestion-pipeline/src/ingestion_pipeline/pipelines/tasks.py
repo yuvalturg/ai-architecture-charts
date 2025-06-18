@@ -120,10 +120,8 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
     os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
 
     # Configuring the vector database
-    name = os.environ.get('NAME')
-    version = os.environ.get('VERSION')
-    embedding_model = os.environ.get('EMBEDDING_MODEL')
-    vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
+    embedding_model = os.getenv('EMBEDDING_MODEL')
+    vector_db_name = os.getenv('VECTOR_DB_NAME')
 
     # Setup docling components
     pipeline_options = PdfPipelineOptions()
