@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -9,6 +9,7 @@ class BaseSourceModel(BaseModel):
     version: str
     source: str
     embedding_model: str
+    vector_db_name: Optional[str] = None
 
     def k8s_name(self, max_length: int = 253) -> str:
         name = '-'.join((self.name, self.version, self.source)).lower()
@@ -19,6 +20,10 @@ class BaseSourceModel(BaseModel):
         name = re.sub(r'^[^a-z0-9]+', '', name)
         name = re.sub(r'[^a-z0-9]+$', '', name)
         return name
+
+    def set_vector_db_name(self):
+        if self.vector_db_name is None:
+            self.vector_db_name = f"{self.name}-v{self.version}".replace(" ", "-").replace(".", "-")
 
 
 class GitHubSource(BaseSourceModel):

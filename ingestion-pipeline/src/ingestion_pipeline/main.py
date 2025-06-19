@@ -17,6 +17,7 @@ async def add_pipeline(
     payload: Union[GitHubSource, S3Source, URLsSource] = Body(...)
 ):
     try:
+        payload.set_vector_db_name()
         k8s.apply_model_as_secret(payload, replace=True)
         pipelines.add_pipeline(payload.k8s_name(), payload.source)
     except Exception as e:

@@ -10,8 +10,7 @@ def s3_pipeline(secret_name: str, llamastack_base_url: str):
     secret_key_to_env = {
             'SOURCE': 'SOURCE',
             'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-            'NAME': 'NAME',
-            'VERSION': 'VERSION',
+            'VECTOR_DB_NAME': 'VECTOR_DB_NAME',
             'ACCESS_KEY_ID': 'ACCESS_KEY_ID',
             'SECRET_ACCESS_KEY': 'SECRET_ACCESS_KEY',
             'ENDPOINT_URL': 'ENDPOINT_URL',
@@ -43,8 +42,7 @@ def url_pipeline(secret_name: str, llamastack_base_url: str):
     secret_key_to_env = {
         'SOURCE': 'SOURCE',
         'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-        'NAME': 'NAME',
-        'VERSION': 'VERSION',
+        'VECTOR_DB_NAME': 'VECTOR_DB_NAME',
         'URLS': 'URLS'
     }
 
@@ -71,8 +69,7 @@ def github_pipeline(secret_name: str, llamastack_base_url: str):
     secret_key_to_env = {
         'SOURCE': 'SOURCE',
         'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
-        'NAME': 'NAME',
-        'VERSION': 'VERSION',
+        'VECTOR_DB_NAME': 'VECTOR_DB_NAME',
         'URL': 'GIT_URL',
         'PATH': 'GIT_PATH',
         'TOKEN': 'GIT_TOKEN',
