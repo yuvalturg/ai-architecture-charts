@@ -27,9 +27,8 @@ def add_pipeline(secret_name: str, source: str):
 
     with tempfile.NamedTemporaryFile(suffix=".yaml") as tmp:
         compiler.Compiler().compile(
-            pipeline_func=pipeline_dict[source],
+            pipeline_func=pipeline_dict[source](**pipeline_params),
             package_path=tmp.name,
-            pipeline_parameters=pipeline_params
         )
 
         tmp.flush()
