@@ -21,7 +21,7 @@ class BaseSourceModel(BaseModel):
         name = re.sub(r'[^a-z0-9]+$', '', name)
         return name
 
-    def set_vector_db_name(self):
+    def set_default_dbname(self):
         if self.vector_db_name is None:
             self.vector_db_name = f"{self.name}-v{self.version}".replace(" ", "-").replace(".", "-")
 
@@ -29,8 +29,8 @@ class BaseSourceModel(BaseModel):
 class GitHubSource(BaseSourceModel):
     url: str
     path: str
-    token: str
-    branch: str
+    token: Optional[str] = None
+    branch: Optional[str] = "main"
 
 
 class S3Source(BaseSourceModel):
