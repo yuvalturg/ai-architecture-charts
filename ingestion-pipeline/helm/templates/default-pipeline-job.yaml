@@ -8,6 +8,7 @@
     "version" $pipeline.version
     "source" $pipeline.source
     "embedding_model" $pipeline.embedding_model
+    "vector_db_name" $pipeline.vector_db_name
 }}
 {{- $pipelineData := merge $base $sourceData }}
 
@@ -42,7 +43,7 @@ spec:
             - -c
             - |
               curl -sfX 'POST' \
-              'http://{{ include "ingestion-pipeline.fullname" . }}/add_pipeline' \
+              'http://{{ include "ingestion-pipeline.fullname" . }}/add' \
               -H 'accept: application/json' \
               -H 'Content-Type: application/json' \
               -d '{{ toJson $pipelineData }}'

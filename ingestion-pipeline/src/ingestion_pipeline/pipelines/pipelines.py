@@ -3,7 +3,7 @@ from kfp import dsl
 from . import tasks
 
 
-def s3_pipeline(secret_name: str, llamastack_base_url: str):
+def s3_pipeline(pipeline_name: str, llamastack_base_url: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
@@ -31,13 +31,13 @@ def s3_pipeline(secret_name: str, llamastack_base_url: str):
         for task in (fetch_task, store_task):
             kubernetes.use_secret_as_env(
                 task=task,
-                secret_name=secret_name,
+                secret_name=pipeline_name,
                 secret_key_to_env=secret_key_to_env
             )
     return _pipeline
 
 
-def url_pipeline(secret_name: str, llamastack_base_url: str):
+def url_pipeline(pipeline_name: str, llamastack_base_url: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
@@ -60,13 +60,13 @@ def url_pipeline(secret_name: str, llamastack_base_url: str):
 
         kubernetes.use_secret_as_env(
             task=store_task,
-            secret_name=secret_name,
+            secret_name=pipeline_name,
             secret_key_to_env=secret_key_to_env
         )
     return _pipeline
 
 
-def github_pipeline(secret_name: str, llamastack_base_url: str):
+def github_pipeline(pipeline_name: str, llamastack_base_url: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
@@ -93,7 +93,7 @@ def github_pipeline(secret_name: str, llamastack_base_url: str):
         for task in (fetch_task, store_task):
             kubernetes.use_secret_as_env(
                 task=task,
-                secret_name=secret_name,
+                secret_name=pipeline_name,
                 secret_key_to_env=secret_key_to_env
             )
     return _pipeline
