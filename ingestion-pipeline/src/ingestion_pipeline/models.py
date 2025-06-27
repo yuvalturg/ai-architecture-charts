@@ -1,4 +1,3 @@
-import re
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -9,21 +8,10 @@ class BaseSourceModel(BaseModel):
     version: str
     source: str
     embedding_model: str
-    vector_db_name: Optional[str] = None
+    vector_db_name: str
 
-    def k8s_name(self, max_length: int = 253) -> str:
-        name = '-'.join((self.name, self.version, self.source)).lower()
-        name = re.sub(r'[^a-z0-9-]', '-', name)
-        name = re.sub(r'-+', '-', name)
-        if len(name) > max_length:
-            name = name[:max_length].rstrip('-')
-        name = re.sub(r'^[^a-z0-9]+', '', name)
-        name = re.sub(r'[^a-z0-9]+$', '', name)
-        return name
-
-    def set_default_dbname(self):
-        if self.vector_db_name is None:
-            self.vector_db_name = f"{self.name}-v{self.version}".replace(" ", "-").replace(".", "-")
+    def pipeline_name(self) -> str:
+        return self.vector_db_name
 
 
 class GitHubSource(BaseSourceModel):
