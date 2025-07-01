@@ -1,0 +1,5 @@
+mcpServers:
+  weather:
+    name: mcp-weather
+    repository: quay.io/ecosystem-appeng/mcp-weather
+    uri: http://whatever.com
