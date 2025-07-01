@@ -2,3 +2,10 @@ fastapi
 uvicorn
 kubernetes
 kfp[kubernetes]
+boto3
+GitPython
+llama-stack-client==__LLAMASTACK_VERSION__
+fire
+requests
+docling
+docling-core

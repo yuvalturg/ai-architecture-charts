@@ -2,18 +2,12 @@ import os
 
 from kfp import dsl
 
-BASE_IMAGE="python:3.10"
-LLAMASTACK_VERSION=os.environ["LLAMASTACK_VERSION"]
+BASE_IMAGE = os.environ["INGESTION_PIPELINE_IMAGE"]
 
 
-@dsl.component(
-    base_image=BASE_IMAGE,
-    packages_to_install=[
-        "boto3"
-    ])
+@dsl.component(base_image=BASE_IMAGE)
 def fetch_from_s3(output_dir: dsl.OutputPath()):
     import os
-
     import boto3
 
     # S3 Config
@@ -63,11 +57,7 @@ def fetch_from_urls(output_dir: dsl.OutputPath()):
     print(f"Storing documents will fetch from URLS env var")
 
 
-@dsl.component(
-    base_image=BASE_IMAGE,
-    packages_to_install=[
-        "GitPython"
-    ])
+@dsl.component(base_image=BASE_IMAGE)
 def fetch_from_github(output_dir: dsl.OutputPath()):
     import os
     import shutil
@@ -83,7 +73,10 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
         else:
             raise ValueError("Only HTTPS URLs support token authentication")
     with tempfile.TemporaryDirectory() as tmp_dir:
-        git.Repo.clone_from(url, tmp_dir, branch=os.getenv("GIT_BRANCH"), depth=1, single_branch=True)
+        kwargs = {"depth": 1, "single_branch": True}
+        if branch := os.getenv("GIT_BRANCH"):
+            kwargs["branch"] = branch
+        git.Repo.clone_from(url, tmp_dir, **kwargs)
         src_dir = os.path.join(tmp_dir, os.getenv("GIT_PATH"))
         if os.path.isdir(src_dir):
             for entry in os.scandir(src_dir):
@@ -94,15 +87,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
             raise RuntimeError(f"Directory {src_dir} not found in the repo.")
 
 
-@dsl.component(
-    base_image=BASE_IMAGE,
-    packages_to_install=[
-        f"llama-stack-client=={LLAMASTACK_VERSION}",
-        "fire",
-        "requests",
-        "docling",
-        "docling-core"
-    ])
+@dsl.component(base_image=BASE_IMAGE)
 def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
     import os
     from pathlib import Path

@@ -49,6 +49,8 @@ jobs:
           file: ${{ matrix.context }}/Containerfile
           push: true
           tags: quay.io/ecosystem-appeng/${{ matrix.name }}:${{ steps.version.outputs.tag }}
+          build-args: |
+            IMAGE_TAG=${{ steps.version.outputs.tag }}
 
   package-helm-charts:
     if: github.repository == 'rh-ai-kickstart/ai-architecture-charts'

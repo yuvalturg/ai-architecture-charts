@@ -1,9 +1,19 @@
 FROM python:3.10-slim
 
+ARG IMAGE_TAG
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
+# Make sure IMAGE_TAG is provided
+RUN bash -c '[[ -z "${IMAGE_TAG}" ]] && { echo "IMAGE_TAG is required but not provided."; exit 1; } ||:'
+
+RUN apt-get update && \
+    apt-get install -y git
+
+RUN pip install --upgrade pip && \
+    sed -i 's/__LLAMASTACK_VERSION__/${IMAGE_TAG}/g' requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY ingestion_pipeline ingestion_pipeline
 
