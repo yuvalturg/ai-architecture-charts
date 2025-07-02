@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Union
 
@@ -27,8 +28,8 @@ async def add_pipeline(
     payload: Union[GitHubSource, S3Source, URLsSource] = Body(...)
 ):
     try:
-        k8s_name = k8s.apply_model_as_secret(payload, replace=True)
-        pipeline_id = pipelines.add_pipeline(k8s_name, payload.source)
+        k8s_name = await asyncio.to_thread(k8s.apply_model_as_secret, payload, replace=True)
+        pipeline_id = await asyncio.to_thread(pipelines.add_pipeline, k8s_name, payload.source)
         logger.info(f"Added pipeline {k8s_name}, {pipeline_id=}")
         return JSONResponse(
             content={
@@ -50,7 +51,7 @@ async def add_pipeline(
 async def get_pipeline_status(pipeline_name: str):
     try:
         k8s_name = k8s.normalize_name(pipeline_name)
-        state = pipelines.get_latest_run_state(pipeline_name=k8s_name)
+        state = await asyncio.to_thread(pipelines.get_latest_run_state, pipeline_name=k8s_name)
         logger.info(f"Returning state {state} for {pipeline_name=} {k8s_name=}")
         return JSONResponse(content={"state": state})
     except LookupError as e:
@@ -64,8 +65,8 @@ async def get_pipeline_status(pipeline_name: str):
 async def delete_pipeline(pipeline_name: str):
     try:
         k8s_name = k8s.normalize_name(pipeline_name)
-        ret = pipelines.delete_pipeline(pipeline_name=k8s_name)
-        success = k8s.delete_k8s_secret(secret_name=k8s_name)
+        ret = await asyncio.to_thread(pipelines.delete_pipeline, pipeline_name=k8s_name)
+        success = await asyncio.to_thread(k8s.delete_k8s_secret, secret_name=k8s_name)
         logger.info(f"Deleted pipeline {pipeline_name} {k8s_name=} {success=}")
         return JSONResponse(content=ret | {"success": success})
     except LookupError as e:

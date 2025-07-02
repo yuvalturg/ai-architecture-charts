@@ -17,8 +17,8 @@ class BaseSourceModel(BaseModel):
 class GitHubSource(BaseSourceModel):
     url: str
     path: str
-    token: Optional[str] = None
-    branch: Optional[str] = "main"
+    token: Optional[str] = ""
+    branch: Optional[str] = ""
 
 
 class S3Source(BaseSourceModel):
