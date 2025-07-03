@@ -35,3 +35,11 @@ Create the name of the service account to use
 {{- .server.serviceAccountName | default "default" }}
 {{- end }}
 {{- end }}
+
+{{- define "mcp-servers.mergeMcpServers" -}}
+  {{- $globalServers := .Values.global | default dict }}
+  {{- $globalServers := index $globalServers "mcp-servers" | default dict }}
+  {{- $localServers := index .Values "mcp-servers" | default dict }}
+  {{- $merged := merge $globalServers $localServers }}
+  {{- toJson $merged }}
+{{- end }}

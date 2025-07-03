@@ -1,6 +1,5 @@
 {{- $root := . }}
-{{/* $servers := include "mcp-servers.mergeMcpServers" . | fromJson */}}
-{{- $servers := index .Values "mcp-servers" }}
+{{- $servers := include "mcp-servers.mergeMcpServers" . | fromJson }}
 {{- range $key, $server := $servers }}
 {{- if $server.deploy }}
 {{- $serverDict := dict "root" $root "key" $key "server" $server }}
