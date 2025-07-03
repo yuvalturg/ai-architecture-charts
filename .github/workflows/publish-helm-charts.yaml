@@ -21,6 +21,9 @@ jobs:
           - name: ingestion-pipeline
             context: ingestion-pipeline
             chart: ingestion-pipeline/helm/Chart.yaml
+          - name: ingestion-pipeline
+            context: ingestion-pipeline
+            chart: ingestion-pipeline/helm/Chart.yaml
 
     steps:
       - name: Checkout
