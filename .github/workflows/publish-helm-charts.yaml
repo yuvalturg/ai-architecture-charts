@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           tags: quay.io/ecosystem-appeng/${{ matrix.name }}:${{ steps.version.outputs.tag }}
           build-args: |
