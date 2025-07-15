@@ -4,8 +4,8 @@ rawDeploymentMode: true
 servingRuntime:
   name: vllm-serving-runtime
   knativeTimeout: 60m
-  gpuImage: quay.io/ecosystem-appeng/vllm:openai-v0.8.5
-  cpuImage: quay.io/ecosystem-appeng/vllm:cpu-v0.8.5
+  gpuImage: quay.io/ecosystem-appeng/vllm:openai-v0.9.2
+  cpuImage: quay.io/ecosystem-appeng/vllm:cpu-v0.9.2
   recommendedAccelerators:
     - nvidia.com/gpu
   env:
