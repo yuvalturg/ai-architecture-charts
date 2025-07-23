@@ -62,12 +62,11 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
     import os
     import shutil
     import tempfile
-    from pathlib import Path
-
     import git
     os.makedirs(output_dir, exist_ok=True)
     token = os.getenv("GIT_TOKEN")
     url = os.getenv("GIT_URL")
+    counter = 0
     if token:
         if url.startswith("https://"):
             url = url.replace("https://", f"https://{token}@")
@@ -80,29 +79,25 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
         git.Repo.clone_from(url, tmp_dir, **kwargs)
         src_dir = os.path.join(tmp_dir, os.getenv("GIT_PATH"))
         if os.path.isdir(src_dir):
-            # Use recursive file scanning instead of just the top-level directory
-            src_path = Path(src_dir)
-            file_count = 0
-            
-            # Recursively find all files in subdirectories
-            for file_path in src_path.rglob("*"):
-                if file_path.is_file():
-                    # Create a flattened filename to avoid conflicts
-                    # Use relative path from src_dir and replace path separators
-                    relative_path = file_path.relative_to(src_path)
-                    safe_filename = str(relative_path).replace(os.sep, "_")
+            for root, dirs, files in os.walk(src_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Create relative path from src_dir to maintain directory structure
+                    rel_path = os.path.relpath(file_path, src_dir)
+                    dest_path = os.path.join(output_dir, rel_path)
                     
-                    destination_path = os.path.join(output_dir, safe_filename)
-                    print(f"Copying {file_path} -> {destination_path}")
-                    shutil.copy2(file_path, destination_path)
-                    file_count += 1
-            
-            print(f"Total files copied: {file_count}")
-            
-            if file_count == 0:
-                raise RuntimeError(f"No files found in {src_dir}")
+                    # Create destination directory if it doesn't exist
+                    dest_dir = os.path.dirname(dest_path)
+                    if dest_dir:  # Only create if there's actually a directory to create
+                        os.makedirs(dest_dir, exist_ok=True)
+                    
+                    print(f"Copying {rel_path} to {dest_path}")
+                    shutil.copy2(file_path, dest_path)
+                    counter+=1
         else:
             raise RuntimeError(f"Directory {src_dir} not found in the repo.")
+
+    print(f"Total files copied: {counter}")
 
 
 @dsl.component(base_image=BASE_IMAGE)
