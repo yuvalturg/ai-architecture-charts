@@ -62,6 +62,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
     import os
     import shutil
     import tempfile
+    from pathlib import Path
 
     import git
     os.makedirs(output_dir, exist_ok=True)
@@ -79,10 +80,27 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
         git.Repo.clone_from(url, tmp_dir, **kwargs)
         src_dir = os.path.join(tmp_dir, os.getenv("GIT_PATH"))
         if os.path.isdir(src_dir):
-            for entry in os.scandir(src_dir):
-                if entry.is_file():
-                    print(f"Copying {entry.path} to {output_dir}")
-                    shutil.copy2(entry.path, os.path.join(output_dir, entry.name))
+            # Use recursive file scanning instead of just the top-level directory
+            src_path = Path(src_dir)
+            file_count = 0
+            
+            # Recursively find all files in subdirectories
+            for file_path in src_path.rglob("*"):
+                if file_path.is_file():
+                    # Create a flattened filename to avoid conflicts
+                    # Use relative path from src_dir and replace path separators
+                    relative_path = file_path.relative_to(src_path)
+                    safe_filename = str(relative_path).replace(os.sep, "_")
+                    
+                    destination_path = os.path.join(output_dir, safe_filename)
+                    print(f"Copying {file_path} -> {destination_path}")
+                    shutil.copy2(file_path, destination_path)
+                    file_count += 1
+            
+            print(f"Total files copied: {file_count}")
+            
+            if file_count == 0:
+                raise RuntimeError(f"No files found in {src_dir}")
         else:
             raise RuntimeError(f"Directory {src_dir} not found in the repo.")
 
@@ -119,7 +137,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath()):
             InputFormat.ASCIIDOC,
             InputFormat.JSON_DOCLING,
             InputFormat.HTML
-        ],
+        ], # TODO: add YAML
         format_options={
             InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
         }
