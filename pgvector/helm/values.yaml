@@ -50,13 +50,6 @@ env:
         key: dbname
         name: pgvector
 
-readinessProbe:
-  exec:
-    command:
-      - /bin/sh
-      - -c
-      - exec pg_isready -U $POSTGRES_USER -d $POSTGRES_DBNAME -h 127.0.0.1 -p $POSTGRES_PORT
-
 resources: {}
 
 autoscaling:
@@ -86,3 +79,7 @@ secret:
   dbname: rag_blueprint
   host: pgvector
   port: "5432"
+
+extraDatabases: []
+  #- name: test_db
+  #  vectordb: false
