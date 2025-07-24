@@ -86,3 +86,7 @@ secret:
   dbname: rag_blueprint
   host: pgvector
   port: "5432"
+
+extraDatabases: []
+  #- name: test_db
+  #  vectordb: false

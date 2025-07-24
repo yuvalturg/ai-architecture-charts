@@ -10,3 +10,9 @@ data:
     set -e
     psql -U postgres -c "CREATE DATABASE ${POSTGRES_DBNAME};"
     psql -U postgres -d ${POSTGRES_DBNAME} -c "CREATE EXTENSION VECTOR;"
+  {{- range .Values.extraDatabases }}
+    psql -U postgres -c "CREATE DATABASE {{ .name }};"
+    {{- if .vectordb }}
+    psql -U postgres -d {{ .name }} -c "CREATE EXTENSION VECTOR;"
+    {{- end }}
+  {{- end }}
