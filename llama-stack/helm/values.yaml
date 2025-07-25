@@ -64,7 +64,7 @@ env:
       secretKeyRef:
         key: port
         name: pgvector
-  - name: PGVECTOR_DBNAME
+  - name: POSTGRES_DBNAME
     valueFrom:
       secretKeyRef:
         key: dbname
