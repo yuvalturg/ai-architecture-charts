@@ -34,8 +34,10 @@ service:
   type: ClusterIP
   port: 8321
 
-args:
-  - --config
+command:
+  - python
+  - -m
+  - llama_stack.distribution.server.server
   - /app-config/config.yaml
 env:
   - name: VLLM_MAX_TOKENS
@@ -131,7 +133,8 @@ models:
 
 auth: {}
 # auth:
-#   custom:
+#   provider_config:
+#     type: "custom"
 #     endpoint: "https://auth.example.com/validate"
 #   access_policy:
 #   - permit:
