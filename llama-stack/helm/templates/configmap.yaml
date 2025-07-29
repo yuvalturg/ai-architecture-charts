@@ -167,10 +167,9 @@ data:
     {{- if .Values.auth }}
     server:
       auth:
-        {{- if .Values.auth.custom }}
-        provider_type: "custom"
-        config:
-          endpoint: {{ .Values.auth.custom.endpoint }}
+        {{- with .Values.auth.provider_config }}
+        provider_config:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- with .Values.auth.access_policy }}
         access_policy:
