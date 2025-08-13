@@ -137,3 +137,14 @@ models:
       - llama3_json
       - --max-model-len
       - "30544"
+
+  qwen-2-5-vl-3b-instruct:
+    id: Qwen/Qwen2.5-VL-3B-Instruct
+    args:
+      - --max-model-len
+      - "30544"
+      - --enable-auto-tool-choice
+      - --chat-template
+      - /chat-templates/tool_chat_template_qwen.jinja
+      - --tool-call-parser
+      - llama3_json
