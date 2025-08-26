@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-and-push:
-    if: github.repository == 'rh-ai-kickstart/ai-architecture-charts'
+    if: github.repository == 'rh-ai-quickstart/ai-architecture-charts'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -58,7 +58,7 @@ jobs:
             IMAGE_TAG=${{ steps.version.outputs.tag }}
 
   package-helm-charts:
-    if: github.repository == 'rh-ai-kickstart/ai-architecture-charts'
+    if: github.repository == 'rh-ai-quickstart/ai-architecture-charts'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -86,7 +86,7 @@ jobs:
 
       - name: Generate Helm index
         run: |
-          helm repo index gh-pages --url https://rh-ai-kickstart.github.io/ai-architecture-charts --merge gh-pages/index.yaml
+          helm repo index gh-pages --url https://rh-ai-quickstart.github.io/ai-architecture-charts --merge gh-pages/index.yaml
 
       - name: Commit and push to gh-pages
         run: |
