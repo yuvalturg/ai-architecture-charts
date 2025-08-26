@@ -71,7 +71,7 @@ defaultPipeline:
     region: us-east-1
 
   GITHUB:
-    url: https://github.com/rh-ai-kickstart/RAG.git
+    url: https://github.com/rh-ai-quickstart/RAG.git
     path: docs
     token: auth_token
     branch: main
