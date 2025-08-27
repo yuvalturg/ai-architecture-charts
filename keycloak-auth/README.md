@@ -34,7 +34,13 @@ oc new-project keycloak-auth
 
 ### 3. Install the chart
 
-#### Basic installation:
+#### Zero-configuration installation:
+
+```bash
+helm install keycloak-auth ai-architecture/keycloak-auth
+```
+
+#### With custom hostname:
 
 ```bash
 helm install keycloak-auth ai-architecture/keycloak-auth \
@@ -50,21 +56,17 @@ helm install keycloak-auth ai-architecture/keycloak-auth \
 
 ## Configuration
 
-### Required Configuration
+### Zero-Configuration Deployment
 
-You **must** configure the following values for your environment:
+The chart works out-of-the-box with sensible defaults. The only value you might want to change:
 
 ```yaml
 keycloak:
   ingress:
-    hostname: "keycloak.apps.your-cluster.com"  # Your Keycloak hostname
-
-global:
-  openshift:
-    oauth:
-      redirectURIs:
-        - "https://keycloak.apps.your-cluster.com/realms/openshift/broker/openshift-v4/endpoint"
+    hostname: "keycloak.apps.your-cluster.com"  # Change to match your cluster's domain
 ```
+
+**OAuth redirect URIs are automatically generated** based on the hostname, so you don't need to configure them manually.
 
 ### OpenShift OAuth Configuration
 
@@ -76,8 +78,7 @@ global:
     enabled: true
     oauth:
       clientName: "keycloak-openshift-oauth"
-      redirectURIs:
-        - "https://keycloak.apps.your-cluster.com/realms/openshift/broker/openshift-v4/endpoint"
+      # redirectURIs are auto-generated based on hostname
       grantMethod: "auto"
       scopes:
         - "user:info"

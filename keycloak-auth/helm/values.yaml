@@ -12,9 +12,8 @@ global:
     oauth:
       # Name of the OAuth client to create in OpenShift
       clientName: "keycloak-openshift-oauth"
-      # Redirect URIs for OAuth flow
-      redirectURIs:
-        - "https://keycloak.example.com/realms/openshift/broker/openshift-v4/endpoint"
+      # Redirect URIs for OAuth flow (auto-generated if empty)
+      redirectURIs: []
       # Grant method (can be: auto, prompt)
       grantMethod: "auto"
       # Scopes to request from OpenShift OAuth
@@ -68,7 +67,7 @@ keycloak:
   ingress:
     enabled: true
     ingressClassName: ""
-    hostname: "keycloak.example.com"
+    hostname: "keycloak.apps.cluster.local"  # Change this to your cluster's domain
     tls: true
     selfSigned: false
     annotations:

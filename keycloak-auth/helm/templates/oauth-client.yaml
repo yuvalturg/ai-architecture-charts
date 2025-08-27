@@ -10,8 +10,12 @@ metadata:
     "helm.sh/hook-weight": "-1"
 secret: {{ include "keycloak-auth.oauthClientSecret" . }}
 redirectURIs:
+{{- if .Values.global.openshift.oauth.redirectURIs }}
 {{- range .Values.global.openshift.oauth.redirectURIs }}
   - {{ . }}
+{{- end }}
+{{- else }}
+  - {{ include "keycloak-auth.oauthRedirectURI" . }}
 {{- end }}
 grantMethod: {{ .Values.global.openshift.oauth.grantMethod }}
 scopeRestrictions:

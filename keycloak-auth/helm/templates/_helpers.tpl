@@ -80,6 +80,39 @@ Get the realm name
 {{- end }}
 
 {{/*
+Generate the Keycloak hostname automatically
+*/}}
+{{- define "keycloak-auth.hostname" -}}
+{{- if .Values.keycloak.ingress.hostname }}
+{{- .Values.keycloak.ingress.hostname }}
+{{- else }}
+{{- printf "%s-keycloak.%s.svc.cluster.local" .Release.Name .Release.Namespace }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate the full Keycloak URL
+*/}}
+{{- define "keycloak-auth.url" -}}
+{{- if .Values.keycloak.ingress.enabled }}
+{{- if .Values.keycloak.ingress.tls }}
+{{- printf "https://%s" (include "keycloak-auth.hostname" .) }}
+{{- else }}
+{{- printf "http://%s" (include "keycloak-auth.hostname" .) }}
+{{- end }}
+{{- else }}
+{{- printf "http://%s:8080" (include "keycloak-auth.hostname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate OAuth redirect URI automatically
+*/}}
+{{- define "keycloak-auth.oauthRedirectURI" -}}
+{{- printf "%s/realms/%s/broker/openshift-v4/endpoint" (include "keycloak-auth.url" .) (include "keycloak-auth.realmName" .) }}
+{{- end }}
+
+{{/*
 Generate OAuth client secret
 */}}
 {{- define "keycloak-auth.oauthClientSecret" -}}
