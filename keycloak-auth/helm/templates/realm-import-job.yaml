@@ -1,0 +1,90 @@
+{{- if .Values.realm.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "keycloak-auth.fullname" . }}-realm-import
+  labels:
+    {{- include "keycloak-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "keycloak-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: realm-import
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: realm-import
+        image: quay.io/keycloak/keycloak:{{ .Chart.AppVersion }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          # Wait for Keycloak to be ready
+          echo "Waiting for Keycloak to be ready..."
+          until curl -f http://{{ include "keycloak-auth.fullname" . }}-keycloak:8080/health/ready; do
+            echo "Keycloak not ready, waiting..."
+            sleep 10
+          done
+          
+          echo "Keycloak is ready. Starting realm import..."
+          
+          # Replace environment variables in realm config
+          envsubst < /realm-config/realm.json > /tmp/realm-processed.json
+          
+          # Import realm using Keycloak Admin CLI
+          /opt/keycloak/bin/kcadm.sh config credentials \
+            --server http://{{ include "keycloak-auth.fullname" . }}-keycloak:8080 \
+            --realm master \
+            --user ${KEYCLOAK_ADMIN} \
+            --password ${KEYCLOAK_ADMIN_PASSWORD}
+          
+          # Check if realm exists
+          if /opt/keycloak/bin/kcadm.sh get realms/{{ include "keycloak-auth.realmName" . }} > /dev/null 2>&1; then
+            echo "Realm {{ include "keycloak-auth.realmName" . }} already exists. Updating..."
+            /opt/keycloak/bin/kcadm.sh update realms/{{ include "keycloak-auth.realmName" . }} -f /tmp/realm-processed.json
+          else
+            echo "Creating new realm {{ include "keycloak-auth.realmName" . }}..."
+            /opt/keycloak/bin/kcadm.sh create realms -f /tmp/realm-processed.json
+          fi
+          
+          echo "Realm import completed successfully!"
+        env:
+        - name: KEYCLOAK_ADMIN
+          value: {{ .Values.keycloak.auth.adminUser }}
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "keycloak-auth.adminPasswordSecretName" . }}
+              key: {{ .Values.keycloak.auth.passwordSecretKey }}
+        {{- if .Values.global.openshift.enabled }}
+        - name: OPENSHIFT_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "keycloak-auth.fullname" . }}-oauth-client
+              key: client-secret
+        - name: OPENSHIFT_API_URL
+          value: "https://kubernetes.default.svc"
+        {{- end }}
+        volumeMounts:
+        - name: realm-config
+          mountPath: /realm-config
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: realm-config
+        configMap:
+          name: {{ include "keycloak-auth.fullname" . }}-realm-config
+{{- end }}

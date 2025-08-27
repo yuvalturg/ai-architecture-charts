@@ -1,0 +1,35 @@
+{{- if and .Values.global.openshift.enabled .Values.global.openshift.oauth }}
+apiVersion: oauth.openshift.io/v1
+kind: OAuthClient
+metadata:
+  name: {{ .Values.global.openshift.oauth.clientName }}
+  labels:
+    {{- include "keycloak-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-1"
+secret: {{ include "keycloak-auth.oauthClientSecret" . }}
+redirectURIs:
+{{- range .Values.global.openshift.oauth.redirectURIs }}
+  - {{ . }}
+{{- end }}
+grantMethod: {{ .Values.global.openshift.oauth.grantMethod }}
+scopeRestrictions:
+{{- range .Values.global.openshift.oauth.scopes }}
+  - literals:
+    - {{ . }}
+{{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "keycloak-auth.fullname" . }}-oauth-client
+  labels:
+    {{- include "keycloak-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-1"
+type: Opaque
+data:
+  client-secret: {{ include "keycloak-auth.oauthClientSecret" . }}
+{{- end }}

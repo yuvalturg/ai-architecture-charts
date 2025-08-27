@@ -1,0 +1,240 @@
+# Default values for keycloak-auth.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  # OpenShift specific configuration
+  openshift:
+    # Set to true when deploying on OpenShift
+    enabled: true
+    # OAuth provider configuration
+    oauth:
+      # Name of the OAuth client to create in OpenShift
+      clientName: "keycloak-openshift-oauth"
+      # Redirect URIs for OAuth flow
+      redirectURIs:
+        - "https://keycloak.example.com/realms/openshift/broker/openshift-v4/endpoint"
+      # Grant method (can be: auto, prompt)
+      grantMethod: "auto"
+      # Scopes to request from OpenShift OAuth
+      scopes:
+        - "user:info"
+        - "user:check-access"
+        - "user:list-projects"
+
+# Keycloak configuration (overrides for Bitnami chart)
+keycloak:
+  # Enable Keycloak
+  enabled: true
+  
+  # Keycloak authentication
+  auth:
+    # Admin user credentials
+    adminUser: admin
+    adminPassword: ""  # Leave empty to auto-generate
+    # Management user credentials  
+    managementUser: manager
+    managementPassword: ""  # Leave empty to auto-generate
+    # Existing secret for admin credentials
+    existingSecret: ""
+    passwordSecretKey: "admin-password"
+    
+  # Production configuration
+  production: true
+  proxy: "edge"
+  
+  # Database configuration (PostgreSQL recommended for production)
+  postgresql:
+    enabled: true
+    auth:
+      postgresPassword: ""  # Leave empty to auto-generate
+      username: keycloak
+      password: ""  # Leave empty to auto-generate
+      database: keycloak
+    primary:
+      persistence:
+        enabled: true
+        size: 8Gi
+        
+  # Service configuration
+  service:
+    type: ClusterIP
+    ports:
+      http: 8080
+      https: 8443
+      
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: ""
+    hostname: "keycloak.example.com"
+    tls: true
+    selfSigned: false
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      
+  # Resource limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1024Mi"
+      cpu: "500m"
+      
+  # Extra environment variables for Keycloak
+  extraEnvVars:
+    - name: KC_FEATURES
+      value: "token-exchange,admin-fine-grained-authz"
+    - name: KC_LOG_LEVEL
+      value: "INFO"
+    - name: KC_METRICS_ENABLED
+      value: "true"
+    - name: KC_HEALTH_ENABLED  
+      value: "true"
+
+# Realm configuration
+realm:
+  # Enable realm creation
+  enabled: true
+  # Realm name
+  name: "openshift"
+  # Realm display name
+  displayName: "OpenShift Authentication"
+  # Enable realm by default
+  realmEnabled: true
+  # Enable user registration
+  registrationAllowed: false
+  # Enable remember me
+  rememberMe: true
+  # Enable verify email
+  verifyEmail: false
+  # Enable login with email
+  loginWithEmailAllowed: true
+  # Enable duplicate emails
+  duplicateEmailsAllowed: false
+  # Reset password allowed
+  resetPasswordAllowed: true
+  # Edit username allowed
+  editUsernameAllowed: false
+  # SSL required (can be: external, none, all)
+  sslRequired: "external"
+  
+  # OpenShift OAuth identity provider configuration
+  identityProvider:
+    enabled: true
+    alias: "openshift-v4"
+    displayName: "OpenShift"
+    providerId: "openshift-v4"
+    # Trust email from identity provider
+    trustEmail: true
+    # Store tokens
+    storeToken: true
+    # Add to token
+    addReadTokenRoleOnCreate: true
+    # Authenticate by default
+    authenticateByDefault: false
+    # Link only
+    linkOnly: false
+    # First broker login flow
+    firstBrokerLoginFlowAlias: "first broker login"
+    
+# RBAC Configuration
+rbac:
+  # Enable basic role creation in the realm
+  enabled: true
+  
+  # Default roles to create in the realm
+  # You can customize these roles or add/remove them as needed
+  roles:
+    - name: "admin"
+      description: "Administrator role with full access to all resources"
+      composite: false
+      attributes:
+        permissions: ["*"]
+    - name: "user"
+      description: "Standard user role with basic access"
+      composite: false
+      attributes:
+        permissions: ["read", "basic"]
+    - name: "devops"
+      description: "DevOps role with deployment and infrastructure management access"
+      composite: false
+      attributes:
+        permissions: ["read", "write", "deploy", "manage-infrastructure"]
+
+# Client configuration for applications that will use this Keycloak
+clients:
+  # Enable default client creation
+  enabled: true
+  
+  # Default client configurations
+  default:
+    - clientId: "openshift-web-console"
+      name: "OpenShift Web Console"
+      description: "OpenShift Web Console Client"
+      enabled: true
+      # Client type (can be: confidential, public, bearer-only)
+      clientAuthenticatorType: "client-secret"
+      # Valid redirect URIs
+      redirectUris:
+        - "https://console-openshift-console.apps.cluster.example.com/*"
+      # Web origins
+      webOrigins:
+        - "https://console-openshift-console.apps.cluster.example.com"
+      # Access type (can be: confidential, public, bearer-only)
+      publicClient: false
+      # Service accounts enabled
+      serviceAccountsEnabled: true
+      # Authorization services enabled
+      authorizationServicesEnabled: true
+      # Standard flow enabled (Authorization Code Flow)
+      standardFlowEnabled: true
+      # Implicit flow enabled
+      implicitFlowEnabled: false
+      # Direct access grants enabled (Resource Owner Password Credentials)
+      directAccessGrantsEnabled: true
+
+# Monitoring configuration
+monitoring:
+  # Enable monitoring
+  enabled: false
+  # ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: false
+    interval: "30s"
+    scrapeTimeout: "10s"
+    labels: {}
+    
+# Security configuration
+security:
+  # Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 1001
+    
+  # Security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1001
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress:
+    enabled: true
+    namespaceSelector: {}
+    podSelector: {}
+  egress:
+    enabled: false
+
+nameOverride: ""
+fullnameOverride: ""
