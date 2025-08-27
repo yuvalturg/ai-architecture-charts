@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kc-auth.fullname" . }}-discovery
+  labels:
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kc-auth.selectorLabels" . | nindent 8 }}
+        job: discovery
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "kc-auth.serviceAccountName" . }}
+      containers:
+        - name: discovery
+          image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              echo "Discovering OpenShift OAuth configuration..."
+              
+              # Get console route to determine base domain
+              CONSOLE_HOST=$(oc get route console -n openshift-console -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+              if [ -n "$CONSOLE_HOST" ]; then
+                BASE_DOMAIN=$(echo "$CONSOLE_HOST" | sed 's/^console-openshift-console\.//')
+                OAUTH_BASE_URL="https://oauth-openshift.${BASE_DOMAIN}"
+              else
+                echo "Could not determine cluster domain, trying alternative method"
+                # Try getting from cluster ingress
+                INGRESS_DOMAIN=$(oc get ingress.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "apps.cluster.local")
+                OAUTH_BASE_URL="https://oauth-openshift.${INGRESS_DOMAIN}"
+                BASE_DOMAIN="$INGRESS_DOMAIN"
+              fi
+              
+              # Generate Keycloak hostname
+              KEYCLOAK_HOST="{{ include "kc-auth.fullname" . }}-{{ .Release.Namespace }}.${BASE_DOMAIN}"
+              
+              # Generate random secrets
+              CLIENT_SECRET=$(openssl rand -hex 32)
+              IDP_CLIENT_SECRET=$(openssl rand -hex 32)
+              
+              echo "Creating discovery configmap..."
+              cat <<EOF | oc apply -f -
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: {{ include "kc-auth.fullname" . }}-discovery
+                namespace: {{ .Release.Namespace }}
+                labels:
+                  {{- include "kc-auth.labels" . | nindent 18 }}
+              data:
+                oauth-base-url: "${OAUTH_BASE_URL}"
+                keycloak-host: "${KEYCLOAK_HOST}"
+                redirect-uri: "https://${KEYCLOAK_HOST}/realms/{{ .Values.keycloak.realm }}/broker/openshift-oauth/endpoint"
+                client-id: "{{ include "kc-auth.clusterResourceName" . }}"
+                realm-name: "{{ .Values.keycloak.realm }}"
+              EOF
+              
+              echo "Creating OAuth secrets..."
+              cat <<EOF | oc apply -f -
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: {{ include "kc-auth.fullname" . }}-oauth-secrets
+                namespace: {{ .Release.Namespace }}
+                labels:
+                  {{- include "kc-auth.labels" . | nindent 18 }}
+              type: Opaque
+              data:
+                client-secret: $(echo -n "${CLIENT_SECRET}" | base64 -w 0)
+                idp-client-secret: $(echo -n "${IDP_CLIENT_SECRET}" | base64 -w 0)
+              EOF
+              
+              echo "Discovery completed successfully"
+              echo "OAuth Base URL: ${OAUTH_BASE_URL}"
+              echo "Keycloak Host: ${KEYCLOAK_HOST}"
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}

@@ -1,39 +1,70 @@
-{{- if and .Values.global.openshift.enabled .Values.global.openshift.oauth }}
-apiVersion: oauth.openshift.io/v1
-kind: OAuthClient
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: {{ .Values.global.openshift.oauth.clientName }}
+  name: {{ include "kc-auth.fullname" . }}-oauth-client
   labels:
-    {{- include "keycloak-auth.labels" . | nindent 4 }}
+    {{- include "kc-auth.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-1"
-secret: {{ include "keycloak-auth.oauthClientSecret" . }}
-redirectURIs:
-{{- if .Values.global.openshift.oauth.redirectURIs }}
-{{- range .Values.global.openshift.oauth.redirectURIs }}
-  - {{ . }}
-{{- end }}
-{{- else }}
-  - {{ include "keycloak-auth.oauthRedirectURI" . }}
-{{- end }}
-grantMethod: {{ .Values.global.openshift.oauth.grantMethod }}
-scopeRestrictions:
-{{- range .Values.global.openshift.oauth.scopes }}
-  - literals:
-    - {{ . }}
-{{- end }}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ include "keycloak-auth.fullname" . }}-oauth-client
-  labels:
-    {{- include "keycloak-auth.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-1"
-type: Opaque
-data:
-  client-secret: {{ include "keycloak-auth.oauthClientSecret" . }}
-{{- end }}
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kc-auth.selectorLabels" . | nindent 8 }}
+        job: oauth-client
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "kc-auth.serviceAccountName" . }}
+      containers:
+        - name: create-oauth-client
+          image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              # Source discovery values
+              REDIRECT_URI=$(cat /discovery/redirect-uri)
+              CLIENT_ID=$(cat /discovery/client-id)
+              
+              # Source secrets
+              IDP_CLIENT_SECRET=$(cat /secrets/idp-client-secret)
+              
+              echo "Creating OpenShift OAuth client: ${CLIENT_ID}"
+              
+              cat <<EOF | oc apply -f -
+              apiVersion: oauth.openshift.io/v1
+              kind: OAuthClient
+              metadata:
+                name: ${CLIENT_ID}
+                labels:
+                  {{- include "kc-auth.labels" . | nindent 18 }}
+              secret: ${IDP_CLIENT_SECRET}
+              redirectURIs:
+                - ${REDIRECT_URI}
+              grantMethod: auto
+              scopeRestrictions:
+                - literals:
+                  - "user:info"
+                - literals:
+                  - "user:check-access"
+              EOF
+              
+              echo "OAuth client created successfully"
+          volumeMounts:
+            - name: discovery
+              mountPath: /discovery
+            - name: secrets
+              mountPath: /secrets
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: discovery
+          configMap:
+            name: {{ include "kc-auth.fullname" . }}-discovery
+        - name: secrets
+          secret:
+            secretName: {{ include "kc-auth.fullname" . }}-oauth-secrets

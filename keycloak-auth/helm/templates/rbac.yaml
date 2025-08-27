@@ -1,34 +1,60 @@
-{{- if .Values.rbac.enabled }}
+{{- if .Values.serviceAccount.create }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "keycloak-auth.fullname" . }}-rbac
+  name: {{ include "kc-auth.serviceAccountName" . }}
   labels:
-    {{- include "keycloak-auth.labels" . | nindent 4 }}
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-15"
+    {{- with .Values.serviceAccount.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
 ---
+{{- if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "keycloak-auth.fullname" . }}-rbac
+  name: {{ include "kc-auth.clusterResourceName" . }}
   labels:
-    {{- include "keycloak-auth.labels" . | nindent 4 }}
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-14"
 rules:
-- apiGroups: ["oauth.openshift.io"]
-  resources: ["oauthclients"]
-  verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["oauth.openshift.io"]
+    resources: ["oauthclients"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["user.openshift.io"]
+    resources: ["users", "groups"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["services", "secrets", "configmaps"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["route.openshift.io"]
+    resources: ["routes"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "keycloak-auth.fullname" . }}-rbac
+  name: {{ include "kc-auth.clusterResourceName" . }}
   labels:
-    {{- include "keycloak-auth.labels" . | nindent 4 }}
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-13"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "keycloak-auth.fullname" . }}-rbac
+  name: {{ include "kc-auth.clusterResourceName" . }}
 subjects:
-- kind: ServiceAccount
-  name: {{ include "keycloak-auth.fullname" . }}-rbac
-  namespace: {{ .Release.Namespace }}
+  - kind: ServiceAccount
+    name: {{ include "kc-auth.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
 {{- end }}

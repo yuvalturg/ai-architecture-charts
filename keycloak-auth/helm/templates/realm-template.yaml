@@ -1,0 +1,278 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kc-auth.fullname" . }}-realm-template
+  labels:
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-3"
+data:
+  generate-realm.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Source discovery values
+    OAUTH_BASE_URL=$(cat /discovery/oauth-base-url)
+    KEYCLOAK_HOST=$(cat /discovery/keycloak-host)
+    REDIRECT_URI=$(cat /discovery/redirect-uri)
+    CLIENT_ID=$(cat /discovery/client-id)
+    REALM_NAME=$(cat /discovery/realm-name)
+    
+    # Source secrets
+    CLIENT_SECRET=$(cat /secrets/client-secret)
+    IDP_CLIENT_SECRET=$(cat /secrets/idp-client-secret)
+    
+    cat > /realm-output/realm.json <<EOF
+    {
+      "realm": "${REALM_NAME}",
+      "enabled": true,
+      "displayName": "{{ .Values.keycloak.realmDisplayName }}",
+      "accessTokenLifespan": 300,
+      "accessTokenLifespanForImplicitFlow": 900,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 36000,
+      "offlineSessionIdleTimeout": 2592000,
+      "accessCodeLifespan": 60,
+      "accessCodeLifespanUserAction": 300,
+      "accessCodeLifespanLogin": 1800,
+      "actionTokenGeneratedByAdminLifespan": 43200,
+      "actionTokenGeneratedByUserLifespan": 300,
+      "oauth2DeviceCodeLifespan": 600,
+      "oauth2DevicePollingInterval": 5,
+      "enabledEventTypes": [],
+      "adminEventsEnabled": false,
+      "adminEventsDetailsEnabled": false,
+      "internationalizationEnabled": false,
+      "supportedLocales": [],
+      "registrationAllowed": false,
+      "registrationEmailAsUsername": false,
+      "rememberMe": false,
+      "verifyEmail": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "editUsernameAllowed": false,
+      "bruteForceProtected": true,
+      "permanentLockout": false,
+      "maxFailureWaitSeconds": 900,
+      "minimumQuickLoginWaitSeconds": 60,
+      "waitIncrementSeconds": 60,
+      "quickLoginCheckMilliSeconds": 1000,
+      "maxDeltaTimeSeconds": 43200,
+      "failureFactor": 30,
+      "roles": {
+        "realm": [
+          {{- range $index, $role := .Values.keycloak.predefinedRoles }}
+          {{- if $index }},{{ end }}
+          {
+            "name": {{ $role.name | quote }},
+            "description": {{ $role.description | quote }},
+            "composite": false
+          }
+          {{- end }}
+        ]
+      },
+      "groups": [],
+      "users": [],
+      "clients": [
+        {
+          "clientId": "openshift-oauth",
+          "name": "OpenShift OAuth Client",
+          "description": "OpenShift OAuth integration client",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "${CLIENT_SECRET}",
+          "redirectUris": [
+            "${OAUTH_BASE_URL}/oauth/token/implicit",
+            "${OAUTH_BASE_URL}/oauth/token/display"
+          ],
+          "webOrigins": [
+            "${OAUTH_BASE_URL}"
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "publicClient": false,
+          "frontchannelLogout": false,
+          "protocol": "openid-connect",
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "defaultClientScopes": [
+            "web-origins",
+            "role_list",
+            "profile",
+            "roles",
+            "email"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        },
+        {
+          "clientId": "{{ .Values.keycloak.appClient.clientId }}",
+          "name": "{{ .Values.keycloak.appClient.name }}",
+          "description": "Application integration client for third-party apps",
+          "enabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "{{ .Values.keycloak.appClient.clientSecret }}",
+          "redirectUris": [
+            {{- range $index, $uri := .Values.keycloak.appClient.redirectUris }}
+            {{- if $index }},{{ end }}"{{ $uri }}"
+            {{- end }}
+          ],
+          "webOrigins": [
+            {{- range $index, $origin := .Values.keycloak.appClient.webOrigins }}
+            {{- if $index }},{{ end }}"{{ $origin }}"
+            {{- end }}
+          ],
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": false,
+          "publicClient": false,
+          "frontchannelLogout": false,
+          "protocol": "openid-connect",
+          "fullScopeAllowed": true,
+          "nodeReRegistrationTimeout": -1,
+          "defaultClientScopes": [
+            "web-origins",
+            "role_list",
+            "profile",
+            "roles",
+            "email"
+          ],
+          "optionalClientScopes": [
+            "address",
+            "phone",
+            "offline_access",
+            "microprofile-jwt"
+          ]
+        }
+      ],
+      "identityProviders": [
+        {
+          "alias": "openshift-oauth",
+          "providerId": "openshift-v4",
+          "enabled": true,
+          "updateProfileFirstLoginMode": "on",
+          "trustEmail": false,
+          "storeToken": false,
+          "addReadTokenRoleOnCreate": false,
+          "authenticateByDefault": false,
+          "linkOnly": false,
+          "firstBrokerLoginFlowAlias": "first broker login",
+          "config": {
+            "baseUrl": "${OAUTH_BASE_URL}",
+            "clientId": "${CLIENT_ID}",
+            "clientSecret": "${IDP_CLIENT_SECRET}",
+            "defaultScope": "user:info",
+            "useJwksUrl": "true"
+          }
+        }
+      ],
+      "identityProviderMappers": [],
+      "protocolMappers": [],
+      "components": {},
+      "internationalizationEnabled": false,
+      "supportedLocales": [],
+      "authenticationFlows": [],
+      "authenticatorConfig": [],
+      "requiredActions": [],
+      "browserFlow": "browser",
+      "registrationFlow": "registration",
+      "directGrantFlow": "direct grant",
+      "resetCredentialsFlow": "reset credentials",
+      "clientAuthenticationFlow": "clients",
+      "dockerAuthenticationFlow": "docker auth",
+      "attributes": {
+        "frontendUrl": "https://${KEYCLOAK_HOST}",
+        "userManagedAccessAllowed": false
+      },
+      "keycloakVersion": "{{ .Chart.AppVersion }}"
+    }
+    EOF
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kc-auth.fullname" . }}-realm-generator
+  labels:
+    {{- include "kc-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kc-auth.selectorLabels" . | nindent 8 }}
+        job: realm-generator
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "kc-auth.serviceAccountName" . }}
+      containers:
+        - name: realm-generator
+          image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+          command:
+            - /bin/bash
+            - /scripts/generate-realm.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: discovery
+              mountPath: /discovery
+            - name: secrets
+              mountPath: /secrets
+            - name: realm-output
+              mountPath: /realm-output
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+        - name: apply-realm
+          image: image-registry.openshift-image-registry.svc:5000/openshift/tools:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              # Wait for realm generation
+              while [ ! -f /realm-output/realm.json ]; do
+                echo "Waiting for realm.json..."
+                sleep 2
+              done
+              
+              # Create the realm ConfigMap
+              cat <<EOF | oc apply -f -
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: {{ include "kc-auth.fullname" . }}-realm
+                namespace: {{ .Release.Namespace }}
+                labels:
+                  {{- include "kc-auth.labels" . | nindent 18 }}
+              data:
+                realm.json: |
+              $(cat /realm-output/realm.json | sed 's/^/    /')
+              EOF
+          volumeMounts:
+            - name: realm-output
+              mountPath: /realm-output
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "kc-auth.fullname" . }}-realm-template
+            defaultMode: 0755
+        - name: discovery
+          configMap:
+            name: {{ include "kc-auth.fullname" . }}-discovery
+        - name: secrets
+          secret:
+            secretName: {{ include "kc-auth.fullname" . }}-oauth-secrets
+        - name: realm-output
+          emptyDir: {}

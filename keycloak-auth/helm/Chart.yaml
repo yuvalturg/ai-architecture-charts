@@ -1,32 +1,9 @@
 apiVersion: v2
-name: keycloak-auth
-description: A Helm chart for Keycloak with OpenShift OAuth integration for authentication and role-based access control
+name: kc-auth
+description: A minimalistic Keycloak authentication Helm chart for OpenShift
 
 type: application
 
 version: 0.1.0
 
-appVersion: "25.2.0"
-
-keywords:
-  - keycloak
-  - authentication
-  - oauth
-  - openshift
-  - rbac
-  - sso
-
-maintainers:
-  - name: Red Hat AI Architecture Team
-    email: ai-architecture@redhat.com
-
-home: https://github.com/rhkp/ai-architecture-charts
-icon: https://www.keycloak.org/resources/images/keycloak_icon_512px.svg
-sources:
-  - https://github.com/rhkp/ai-architecture-charts
-  - https://www.keycloak.org/
-
-dependencies:
-  - name: keycloak
-    version: "22.2.1"
-    repository: "oci://registry-1.docker.io/bitnamicharts"
+appVersion: "26.3"

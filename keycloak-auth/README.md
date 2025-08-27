@@ -1,330 +1,144 @@
-# Keycloak Authentication and RBAC Helm Chart
+# KC-Auth Helm Chart
 
-This Helm chart deploys Keycloak with OpenShift OAuth integration for authentication and role-based access control (RBAC). It's designed to be used as a central authentication service for other applications in your OpenShift cluster.
+A minimalistic Keycloak authentication Helm chart for OpenShift that provides OAuth integration and predefined roles.
 
 ## Features
 
-- **Keycloak Deployment**: Based on Bitnami's Keycloak Helm chart
-- **OpenShift OAuth Integration**: Seamless integration with OpenShift's built-in OAuth provider
-- **Role-Based Access Control**: Configurable roles and group mappings
-- **Automated Realm Configuration**: Automatic setup of realm, identity providers, and clients
-- **Production Ready**: Includes PostgreSQL, TLS, monitoring, and security configurations
-- **Extensible**: Easy to configure for use with other applications
+- Deploys Keycloak using upstream images
+- Integrates with external database (user-provided)
+- OpenShift OAuth integration
+- Predefined roles (user/admin/devops)
+- Automatic realm configuration
+- Self-deployable with proper RBAC
+- Cluster-wide resources with namespace-appended names
 
 ## Prerequisites
 
-- OpenShift 4.x cluster
-- Helm 3.x
-- Cluster admin privileges (for OAuth client creation)
+1. **Database**: Deploy a PostgreSQL/MySQL/MariaDB database separately
+2. **Database Secret**: Create a secret containing database credentials
+3. **Admin Secret**: Create a secret containing Keycloak admin password
+4. **OpenShift Cluster**: Running OpenShift with OAuth enabled
 
 ## Installation
 
-### 1. Add the chart repository
+### 1. Create Required Secrets
 
 ```bash
-helm repo add ai-architecture https://rhkp.github.io/ai-architecture-charts
-helm repo update
+# Database secret
+kubectl create secret generic kc-auth-db-secret \
+  --from-literal=database-url="jdbc:postgresql://postgres:5432/keycloak" \
+  --from-literal=database-user="keycloak" \
+  --from-literal=database-password="your-db-password"
+
+# Admin password secret
+kubectl create secret generic kc-auth-admin-secret \
+  --from-literal=password="your-admin-password"
 ```
 
-### 2. Create a namespace
+### 2. Configure Values
 
-```bash
-oc new-project keycloak-auth
+Create a `values-override.yaml` file:
+
+```yaml
+keycloak:
+  hostname: "keycloak.apps.your-cluster.com"
+  
+  openshiftOAuth:
+    baseUrl: "https://oauth-openshift.apps.your-cluster.com"
+    oauthRedirectURIs:
+      - "https://keycloak.apps.your-cluster.com/realms/openshift/broker/openshift-oauth/endpoint"
+  
+  appClient:
+    redirectUris:
+      - "https://your-app.apps.your-cluster.com/auth/callback"
+    webOrigins:
+      - "https://your-app.apps.your-cluster.com"
+
+route:
+  host: "keycloak.apps.your-cluster.com"
 ```
 
-### 3. Install the chart
-
-#### Zero-configuration installation:
+### 3. Deploy
 
 ```bash
-helm install keycloak-auth ai-architecture/keycloak-auth
-```
-
-#### With custom hostname:
-
-```bash
-helm install keycloak-auth ai-architecture/keycloak-auth \
-  --set keycloak.ingress.hostname=keycloak.apps.your-cluster.com
-```
-
-#### Production installation with custom values:
-
-```bash
-helm install keycloak-auth ai-architecture/keycloak-auth \
-  --values custom-values.yaml
+helm install kc-auth ./helm -f values-override.yaml
 ```
 
 ## Configuration
 
-### Zero-Configuration Deployment
+### Database Configuration
 
-The chart works out-of-the-box with sensible defaults. The only value you might want to change:
+The chart supports multiple database types:
+- `postgres` (default)
+- `mysql`
+- `mariadb`
+- `oracle`
+- `mssql`
 
-```yaml
-keycloak:
-  ingress:
-    hostname: "keycloak.apps.your-cluster.com"  # Change to match your cluster's domain
-```
+Configure via `database.type` in values.yaml.
 
-**OAuth redirect URIs are automatically generated** based on the hostname, so you don't need to configure them manually.
+### Predefined Roles
 
-### OpenShift OAuth Configuration
+Three roles are created by default:
+- `user`: Standard user role
+- `admin`: Administrator role  
+- `devops`: DevOps role
 
-The chart automatically creates an OAuth client in OpenShift. Configure the OAuth settings:
+Customize via `keycloak.predefinedRoles` in values.yaml.
 
-```yaml
-global:
-  openshift:
-    enabled: true
-    oauth:
-      clientName: "keycloak-openshift-oauth"
-      # redirectURIs are auto-generated based on hostname
-      grantMethod: "auto"
-      scopes:
-        - "user:info"
-        - "user:check-access"
-        - "user:list-projects"
-```
+### OpenShift OAuth Integration
 
-### RBAC and Role Configuration
+The chart automatically configures:
+- OpenShift as an identity provider in Keycloak
+- OAuth client for OpenShift authentication
+- Proper redirect URIs and scopes
 
-Configure initial roles that will be created in Keycloak:
+### Application Integration
 
-```yaml
-rbac:
-  enabled: true
-  roles:
-    - name: "admin"
-      description: "Administrator role with full access to all resources"
-      attributes:
-        permissions: ["*"]
-    - name: "user"
-      description: "Standard user role with basic access"
-      attributes:
-        permissions: ["read", "basic"]
-    - name: "devops"
-      description: "DevOps role with deployment and infrastructure management access"
-      attributes:
-        permissions: ["read", "write", "deploy", "manage-infrastructure"]
-```
+For applications to authenticate against this Keycloak instance, use:
 
-**Note**: These roles are created automatically during installation. You can then manually assign these roles to users through the Keycloak admin console.
-
-### Application Clients
-
-Configure clients for applications that will use this Keycloak:
-
-```yaml
-clients:
-  enabled: true
-  default:
-    - clientId: "my-app"
-      name: "My Application"
-      description: "My Application Client"
-      enabled: true
-      redirectUris:
-        - "https://my-app.apps.your-cluster.com/*"
-      webOrigins:
-        - "https://my-app.apps.your-cluster.com"
-      publicClient: false
-      standardFlowEnabled: true
-      directAccessGrantsEnabled: true
-```
-
-### Production Configuration
-
-For production deployments, configure:
-
-```yaml
-keycloak:
-  production: true
-  proxy: "edge"
-  
-  # Use external PostgreSQL
-  postgresql:
-    enabled: true
-    auth:
-      postgresPassword: "your-secure-password"
-      password: "your-secure-password"
-    primary:
-      persistence:
-        enabled: true
-        size: 20Gi
-        
-  # Resource limits
-  resources:
-    requests:
-      memory: "1Gi"
-      cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
-      
-  # TLS configuration
-  ingress:
-    enabled: true
-    tls: true
-    selfSigned: false
-```
-
-## Role Management
-
-This chart uses **manual role management** through the Keycloak admin console:
-
-### 1. Access Keycloak Admin Console
-
-```bash
-# Get the Keycloak admin URL
-echo "Admin URL: https://$(oc get route keycloak-auth-keycloak -o jsonpath='{.spec.host}')/admin"
-
-# Get admin credentials
-echo "Username: admin"
-echo "Password: $(oc get secret keycloak-auth-admin -o jsonpath='{.data.admin-password}' | base64 -d)"
-```
-
-### 2. Assign Roles to Users
-
-1. Login to the admin console with the credentials above
-2. Navigate to your realm (default: `openshift`)
-3. Go to **Users** → [Select User] → **Role Mappings**
-4. Assign realm roles as needed (admin, user, devops)
-
-### 3. How Authentication Works
-
-1. **User logs in via OpenShift OAuth** to Keycloak
-2. **Keycloak authenticates** the user against OpenShift
-3. **Keycloak checks manually assigned roles** for that specific user
-4. **Applications receive JWT tokens** with the assigned roles
-
-This gives you complete control over user permissions without automatic group synchronization.
-
-## Using the Chart with Other Applications
-
-Once deployed, other applications can use this Keycloak for authentication:
-
-### 1. Get Integration Information
-
-```bash
-# Get the Keycloak URL
-echo "Keycloak URL: https://$(oc get route keycloak-auth-keycloak -o jsonpath='{.spec.host}')"
-echo "Issuer URL: https://$(oc get route keycloak-auth-keycloak -o jsonpath='{.spec.host}')/realms/openshift"
-```
-
-### 2. Configure Your Application
-
-Configure your application to use Keycloak as an OIDC provider:
-
-- **Issuer URL**: `https://keycloak.apps.your-cluster.com/realms/openshift`
-- **Client ID**: The client ID you configured in the `clients` section
-- **Client Secret**: Retrieved from Keycloak admin console
-
-### 3. Example Application Integration
-
-For a web application, configure OIDC:
-
-```yaml
-# In your application's values.yaml
-auth:
-  enabled: true
-  oidc:
-    issuerUrl: "https://keycloak.apps.your-cluster.com/realms/openshift"
-    clientId: "my-app"
-    clientSecret: "client-secret-from-keycloak"
-```
-
-## Monitoring
-
-Enable monitoring with Prometheus:
-
-```yaml
-monitoring:
-  enabled: true
-  serviceMonitor:
-    enabled: true
-    interval: "30s"
-    labels:
-      monitoring: "prometheus"
-```
-
-## Security
-
-The chart includes several security features:
-
-- **Non-root containers**: All containers run as non-root users
-- **Network policies**: Optional network isolation
-- **Secret management**: Automatic generation of secure passwords
-- **TLS**: Full TLS support for production deployments
-
-## Troubleshooting
-
-### Common Issues
-
-1. **OAuth Client Creation Fails**
-   - Ensure you have cluster admin privileges
-   - Check that the OAuth client name is unique
-
-2. **Realm Import Fails**
-   - Check Keycloak logs: `oc logs -l app.kubernetes.io/name=keycloak`
-   - Verify admin credentials are correct
-
-3. **Group Sync Fails**
-   - Ensure OpenShift groups exist
-   - Check RBAC permissions for the service account
-
-### Logs
-
-View logs for different components:
-
-```bash
-# Keycloak logs
-oc logs -l app.kubernetes.io/name=keycloak
-
-# Realm import job logs
-oc logs job/keycloak-auth-realm-import
-
-# Group sync job logs
-oc logs job/keycloak-auth-group-sync
-```
-
-## Upgrading
-
-To upgrade the chart:
-
-```bash
-helm upgrade keycloak-auth ai-architecture/keycloak-auth \
-  --values your-values.yaml
-```
-
-## Uninstalling
-
-To uninstall the chart:
-
-```bash
-helm uninstall keycloak-auth
-```
-
-**Note**: This will also remove the OAuth client from OpenShift.
+**Auth Endpoint**: `https://your-keycloak-host/realms/openshift/protocol/openid-connect/auth`
+**Token Endpoint**: `https://your-keycloak-host/realms/openshift/protocol/openid-connect/token`
+**Client ID**: `app-integration-client` (configurable)
 
 ## Values Reference
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `global.openshift.enabled` | bool | `true` | Enable OpenShift integration |
-| `global.openshift.oauth.clientName` | string | `"keycloak-openshift-oauth"` | OAuth client name |
-| `keycloak.enabled` | bool | `true` | Enable Keycloak deployment |
-| `keycloak.auth.adminUser` | string | `"admin"` | Keycloak admin username |
-| `keycloak.ingress.hostname` | string | `"keycloak.example.com"` | Keycloak hostname |
-| `realm.enabled` | bool | `true` | Enable realm creation |
-| `realm.name` | string | `"openshift"` | Realm name |
-| `rbac.enabled` | bool | `true` | Enable RBAC configuration |
-| `clients.enabled` | bool | `true` | Enable client creation |
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `keycloak.hostname` | Keycloak public hostname | `keycloak.example.com` |
+| `keycloak.realm` | Realm name | `openshift` |
+| `keycloak.adminUser` | Admin username | `admin` |
+| `database.type` | Database type | `postgres` |
+| `database.secret.name` | Database secret name | `kc-auth-db-secret` |
+| `route.enabled` | Enable OpenShift route | `true` |
+| `rbac.create` | Create RBAC resources | `true` |
 
-For a complete list of values, see [values.yaml](helm/values.yaml).
+## Troubleshooting
 
-## Contributing
+### Database Connection Issues
+- Verify database secret contains correct credentials
+- Check database URL format matches your database type
+- Ensure database is accessible from the Keycloak pod
 
-Contributions are welcome! Please read the [Contributing Guide](../CONTRIBUTING.md) for details.
+### OAuth Integration Issues  
+- Verify OpenShift OAuth endpoints are correct
+- Check OAuthClient was created successfully
+- Ensure redirect URIs match exactly
 
-## License
+### Permission Issues
+- Verify ServiceAccount has proper ClusterRole permissions
+- Check that RBAC resources were created successfully
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details.
+## Uninstalling
+
+```bash
+helm uninstall kc-auth
+```
+
+Note: This will not delete cluster-wide resources automatically. Clean them up manually if needed:
+
+```bash
+kubectl delete clusterrole kc-auth-<namespace>
+kubectl delete clusterrolebinding kc-auth-<namespace>
+kubectl delete oauthclient kc-auth-<namespace>
+```
