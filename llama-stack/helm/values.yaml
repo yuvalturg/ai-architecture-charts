@@ -37,7 +37,7 @@ service:
 command:
   - python
   - -m
-  - llama_stack.distribution.server.server
+  - llama_stack.core.server.server
   - /app-config/config.yaml
 env:
   - name: VLLM_MAX_TOKENS
