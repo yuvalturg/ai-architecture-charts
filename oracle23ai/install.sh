@@ -265,7 +265,6 @@ wait_for_oracle_ready() {
         
         if echo "$conn_result" | grep -q "1"; then
             log_success "✅ Oracle database is ready and accepting connections!"
-            log_info "🔍 Debug: Successful connection used password length: ${#db_password}, first 4 chars: ${db_password:0:4}..."
             return 0
         elif echo "$conn_result" | grep -q "ORA-"; then
             log_info "   Oracle responding but not fully ready yet..."
@@ -310,11 +309,9 @@ verify_system_user_access() {
     fi
     
     log_info "📋 Retrieved Oracle system password from secret (length: ${#db_password})"
-    log_info "🔍 Debug: First 4 chars of password: ${db_password:0:4}..."
     
     # Test SYSTEM user connection to FREEPDB1 with retry logic
     log_info "🔐 Testing SYSTEM user connection to FREEPDB1..."
-    log_info "🔍 Debug: Password length for SYSTEM test: ${#db_password}"
     
     local max_attempts=3
     local attempt=1
@@ -334,7 +331,6 @@ verify_system_user_access() {
         elif echo "$conn_result" | grep -q "ORA-12154"; then
             log_info "   TNS alias not ready yet, waiting 15s before retry..."
         else
-            log_info "🔍 Debug attempt ${attempt}: $conn_result"
             log_info "   Connection not ready yet, waiting 15s before retry..."
         fi
         
@@ -571,7 +567,7 @@ display_connection_info() {
     echo "SID: FREE"
     echo "Service Name: FREEPDB1"
     echo "Username: system"
-    echo "Password: $db_password"
+    echo "Password: [REDACTED - retrieve with: oc get secret oracle23ai -o jsonpath='{.data.password}' | base64 -d]"
     echo
     echo "Connection String: $service_name:$service_port/FREEPDB1"
     echo
