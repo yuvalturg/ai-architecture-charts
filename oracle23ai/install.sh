@@ -261,10 +261,11 @@ wait_for_oracle_ready() {
         
         # Test SYSTEM user connection to FREEPDB1
         local conn_result
-        conn_result=$(oc exec "oracle23ai-0" -n "$NAMESPACE" -- bash -c "echo 'SELECT 1 FROM DUAL;' | sqlplus -s system/\"${db_password}\"@FREEPDB1" 2>/dev/null || echo "FAILED")
+        conn_result=$(oc exec "oracle23ai-0" -n "$NAMESPACE" -- bash -c "echo 'SELECT 1 FROM DUAL;' | sqlplus -s system/\"${db_password}\"@localhost:1521/FREEPDB1" 2>/dev/null || echo "FAILED")
         
         if echo "$conn_result" | grep -q "1"; then
             log_success "✅ Oracle database is ready and accepting connections!"
+            log_info "🔍 Debug: Successful connection used password length: ${#db_password}, first 4 chars: ${db_password:0:4}..."
             return 0
         elif echo "$conn_result" | grep -q "ORA-"; then
             log_info "   Oracle responding but not fully ready yet..."
@@ -280,32 +281,71 @@ wait_for_oracle_ready() {
     return 1
 }
 
+# Get Oracle password from secret (shared function)
+get_oracle_password() {
+    local db_password
+    if oc get secret "oracle23ai" -n "$NAMESPACE" &> /dev/null; then
+        db_password=$(oc get secret "oracle23ai" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d 2>/dev/null)
+        if [[ -n "$db_password" ]]; then
+            echo "$db_password"
+        else
+            echo "$ORACLE_PASSWORD"
+        fi
+    else
+        echo "$ORACLE_PASSWORD"
+    fi
+}
+
 # Verify SYSTEM user access for TPC-DS operations
 verify_system_user_access() {
     log_info "👤 Verifying SYSTEM user access for TPC-DS operations..."
     
-    # Get Oracle system password from secret
-    local oracle_password
-    if oc get secret "oracle23ai" -n "$NAMESPACE" &> /dev/null; then
-        oracle_password=$(oc get secret "oracle23ai" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d)
-        log_info "📋 Retrieved Oracle system password from secret (length: ${#oracle_password})"
-    else
-        log_error "❌ Oracle system password secret not found"
+    # Get Oracle system password using shared function
+    local db_password
+    db_password=$(get_oracle_password)
+    
+    if [[ -z "$db_password" ]]; then
+        log_error "❌ Oracle system password not found"
         return 1
     fi
     
-    # Test SYSTEM user connection to FREEPDB1
+    log_info "📋 Retrieved Oracle system password from secret (length: ${#db_password})"
+    log_info "🔍 Debug: First 4 chars of password: ${db_password:0:4}..."
+    
+    # Test SYSTEM user connection to FREEPDB1 with retry logic
     log_info "🔐 Testing SYSTEM user connection to FREEPDB1..."
+    log_info "🔍 Debug: Password length for SYSTEM test: ${#db_password}"
     
-    if oc exec oracle23ai-0 -n "$NAMESPACE" -- bash -c "
-    echo \"SELECT 'SYSTEM_ACCESS_TEST: ' || USER || ' in ' || SYS_CONTEXT('USERENV','CON_NAME') FROM DUAL;\" | sqlplus -s system/\"${oracle_password}\"@FREEPDB1
-    " 2>/dev/null | grep -q "SYSTEM_ACCESS_TEST.*SYSTEM.*FREEPDB1"; then
-        log_success "✅ SYSTEM user has access to FREEPDB1 for TPC-DS operations"
-        return 0
-    else
-        log_error "❌ SYSTEM user cannot access FREEPDB1"
-        return 1
-    fi
+    local max_attempts=3
+    local attempt=1
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        log_info "   SYSTEM access attempt ${attempt}/${max_attempts}..."
+        
+        # Test the connection with detailed error output for debugging
+        local conn_result
+        conn_result=$(oc exec oracle23ai-0 -n "$NAMESPACE" -- bash -c "
+        echo \"SELECT 'SYSTEM_ACCESS_TEST: ' || USER || ' in ' || SYS_CONTEXT('USERENV','CON_NAME') FROM DUAL;\" | sqlplus -s system/\"${db_password}\"@localhost:1521/FREEPDB1
+        " 2>&1 || echo "EXEC_FAILED")
+        
+        if echo "$conn_result" | grep -q "SYSTEM_ACCESS_TEST.*SYSTEM.*FREEPDB1"; then
+            log_success "✅ SYSTEM user has access to FREEPDB1 for TPC-DS operations"
+            return 0
+        elif echo "$conn_result" | grep -q "ORA-12154"; then
+            log_info "   TNS alias not ready yet, waiting 15s before retry..."
+        else
+            log_info "🔍 Debug attempt ${attempt}: $conn_result"
+            log_info "   Connection not ready yet, waiting 15s before retry..."
+        fi
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            sleep 15
+        fi
+        attempt=$((attempt + 1))
+    done
+    
+    log_error "❌ SYSTEM user cannot access FREEPDB1 after ${max_attempts} attempts"
+    return 1
 }
 
 # Verify TPC-DS data loading with actual row counts
@@ -345,12 +385,12 @@ verify_tpcds_data_loading() {
         return 1
     fi
     
-    # Get Oracle system password from secret
-    local oracle_password
-    if oc get secret "oracle23ai" -n "$NAMESPACE" &> /dev/null; then
-        oracle_password=$(oc get secret "oracle23ai" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d)
-    else
-        log_error "❌ Oracle system password secret not found"
+    # Get Oracle system password using shared function
+    local db_password
+    db_password=$(get_oracle_password)
+    
+    if [[ -z "$db_password" ]]; then
+        log_error "❌ Oracle system password not found"
         return 1
     fi
     
@@ -365,7 +405,7 @@ verify_tpcds_data_loading() {
     UNION ALL SELECT 'STORE', COUNT(*) FROM SYSTEM.STORE
     UNION ALL SELECT 'STORE_SALES', COUNT(*) FROM SYSTEM.STORE_SALES
     UNION ALL SELECT 'CATALOG_SALES', COUNT(*) FROM SYSTEM.CATALOG_SALES
-    ) ORDER BY table_name;\" | sqlplus -s system/\"${oracle_password}\"@FREEPDB1
+    ) ORDER BY table_name;\" | sqlplus -s system/\"${db_password}\"@localhost:1521/FREEPDB1
     " 2>/dev/null)
     
     if echo "$verification_result" | grep -q "CUSTOMER: [1-9]"; then
@@ -392,16 +432,16 @@ verify_loader_password_access() {
         return 1
     fi
     
-    # Test password extraction
-    local test_password
-    test_password=$(oc get secret "$secret_name" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d 2>/dev/null)
+    # Test password extraction using shared function
+    local db_password
+    db_password=$(get_oracle_password)
     
-    if [[ -z "$test_password" ]]; then
+    if [[ -z "$db_password" ]]; then
         log_error "❌ Could not extract password from database secret"
         return 1
     fi
     
-    log_success "✅ Loader can access database password (length: ${#test_password})"
+    log_success "✅ Loader can access database password (length: ${#db_password})"
     
     # Verify helm-loader chart can template with the secret reference
     log_info "🧪 Testing helm-loader chart templating with secret reference..."
@@ -515,13 +555,9 @@ display_connection_info() {
     local service_name="oracle23ai"
     local service_port="1521"
     
-    # Get password from secret
+    # Get password from secret using shared function
     local db_password
-    if oc get secret "oracle23ai" -n "$NAMESPACE" &> /dev/null; then
-        db_password=$(oc get secret "oracle23ai" -n "$NAMESPACE" -o jsonpath='{.data.password}' | base64 -d)
-    else
-        db_password="$ORACLE_PASSWORD"
-    fi
+    db_password=$(get_oracle_password)
     
     echo
     echo "=================================="
@@ -602,9 +638,11 @@ main() {
         log_warning "⏭️  Skipping TPC-DS Loader installation (INSTALL_LOADER=false)"
     fi
     
-    # Step 3: Verify SYSTEM user access for TPC-DS operations
+    # Step 3: Verify SYSTEM user access for TPC-DS operations (with stabilization delay)
     if [[ "$VERIFY_SYSTEM_ACCESS" == "true" ]]; then
         log_info "👤 Step 4: Verifying SYSTEM user access for TPC-DS operations..."
+        log_info "⏳ Allowing 10s for database to stabilize after initial connection test..."
+        sleep 10
         verify_system_user_access
     else
         log_warning "⏭️  Skipping SYSTEM user access verification (VERIFY_SYSTEM_ACCESS=false)"

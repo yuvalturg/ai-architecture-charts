@@ -38,8 +38,8 @@ seLinuxContext:
 volumes: [configMap, downwardAPI, emptyDir, persistentVolumeClaim, projected, secret]
 EOF
 
-# 2. Deploy chart (creates ServiceAccount)
-helm install oracle23ai ./helm/ -n $NAMESPACE --create-namespace
+# 2. Deploy Oracle database (creates ServiceAccount)
+helm install oracle23ai ./helm-db/ -n $NAMESPACE --create-namespace
 
 # 3. Add SCC to service account (after ServiceAccount exists)
 oc adm policy add-scc-to-user oracle-scc -z oracle23ai -n $NAMESPACE
