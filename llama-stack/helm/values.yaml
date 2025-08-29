@@ -104,6 +104,10 @@ tolerations: []
 
 affinity: {}
 
+gcpServiceAccount:
+  name: gcp-service-account
+  mountPath: /var/secrets/gcp-service-account.json
+
 secrets: {}
 mcp-servers: {}
 models:
