@@ -38,6 +38,13 @@ data:
           tls_verify: {{ $model.tlsVerify | default false }}
       {{- end }}
       {{- end }}
+      {{- if .Values.vertexai.enabled }}
+      - provider_id: {{ .Values.vertexai.projectId }}-vertexai
+        provider_type: remote::vertexai
+        config:
+          project: {{ .Values.vertexai.projectId }}
+          location: {{ .Values.vertexai.location }}
+      {{- end }}
       - provider_id: sentence-transformers
         provider_type: inline::sentence-transformers
         config: {}
@@ -167,5 +174,5 @@ data:
         {{- with .Values.auth.access_policy }}
         access_policy:
           {{- toYaml . | nindent 8 }}
-        {{- end }}        
+        {{- end }}
     {{- end }}
