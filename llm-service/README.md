@@ -1,0 +1,508 @@
+# LLM Service Helm Chart
+
+This Helm chart deploys a comprehensive LLM (Large Language Model) serving infrastructure using vLLM runtime with support for any models compatible with vLLM, GPU/CPU deployment modes, and OpenShift AI integration.
+
+## Overview
+
+The llm-service chart creates:
+- vLLM serving runtime for model inference
+- InferenceService resources for model deployment
+- ConfigMap for chat templates
+- Secret management for HuggingFace tokens
+- Support for multiple model configurations
+- GPU and CPU deployment modes
+
+## Prerequisites
+
+- OpenShift cluster with OpenShift AI/KServe installed
+- Helm 3.x
+- GPU nodes (recommended for optimal performance)
+- HuggingFace account and token for model access
+- Sufficient storage for model downloads
+
+## Installation
+
+### Basic Installation
+
+```bash
+helm install llm-service ./helm
+```
+
+### Installation with GPU Support
+
+```bash
+helm install llm-service ./helm \
+  --set device=gpu \
+  --set models.llama-3-2-3b-instruct.enabled=true
+```
+
+### Installation with CPU Mode
+
+```bash
+helm install llm-service ./helm \
+  --set device=cpu \
+  --set servingRuntime.cpuImage="quay.io/ecosystem-appeng/vllm:cpu-v0.9.2"
+```
+
+### Installation with Custom Models
+
+```bash
+helm install llm-service ./helm \
+  --set models.llama-3-1-8b-instruct.enabled=true \
+  --set models.llama-guard-3-8b.enabled=true \
+  --set secret.hf_token="your_huggingface_token"
+```
+
+## Configuration
+
+### Key Configuration Options
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `device` | Deployment mode (gpu/cpu) | `gpu` |
+| `rawDeploymentMode` | Use raw deployment instead of KServe | `true` |
+| `servingRuntime.name` | Name of the serving runtime | `vllm-serving-runtime` |
+| `servingRuntime.knativeTimeout` | Knative timeout for inference | `60m` |
+| `servingRuntime.gpuImage` | GPU container image | `quay.io/ecosystem-appeng/vllm:openai-v0.9.2` |
+| `servingRuntime.cpuImage` | CPU container image | `quay.io/ecosystem-appeng/vllm:cpu-v0.9.2` |
+| `secret.enabled` | Enable HuggingFace secret creation | `true` |
+| `secret.hf_token` | HuggingFace access token | `""` |
+
+### Model Configuration
+
+The chart supports multiple models compatible with vLLM with individual configuration:
+
+#### Example: Llama 3.2 1B Instruct
+```yaml
+models:
+  llama-3-2-1b-instruct:
+    id: meta-llama/Llama-3.2-1B-Instruct
+    enabled: true
+    args:
+      - --enable-auto-tool-choice
+      - --chat-template
+      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - --tool-call-parser
+      - llama3_json
+      - --max-model-len
+      - "30544"
+```
+
+#### Example: Llama 3.1 8B Instruct
+```yaml
+models:
+  llama-3-1-8b-instruct:
+    id: meta-llama/Llama-3.1-8B-Instruct
+    enabled: true
+    resources:
+      limits:
+        nvidia.com/gpu: "1"
+    args:
+      - --max-model-len
+      - "14336"
+      - --enable-auto-tool-choice
+```
+
+#### Example: Llama 3.3 70B Instruct (Multi-GPU)
+```yaml
+models:
+  llama-3-3-70b-instruct:
+    id: meta-llama/Llama-3.3-70B-Instruct
+    enabled: true
+    storageSize: 150Gi
+    resources:
+      limits:
+        nvidia.com/gpu: "4"
+    args:
+      - --tensor-parallel-size
+      - "4"
+      - --gpu-memory-utilization
+      - "0.95"
+      - --quantization
+      - fp8
+```
+
+### Serving Runtime Configuration
+
+```yaml
+servingRuntime:
+  name: vllm-serving-runtime
+  knativeTimeout: 60m
+  gpuImage: quay.io/ecosystem-appeng/vllm:openai-v0.9.2
+  cpuImage: quay.io/ecosystem-appeng/vllm:cpu-v0.9.2
+  recommendedAccelerators:
+    - nvidia.com/gpu
+  env:
+    - name: HOME
+      value: /vllm
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          key: HF_TOKEN
+          name: huggingface-secret
+```
+
+### Complete Example values.yaml
+
+```yaml
+device: gpu
+rawDeploymentMode: true
+
+servingRuntime:
+  name: vllm-serving-runtime
+  knativeTimeout: 90m
+  gpuImage: quay.io/ecosystem-appeng/vllm:openai-v0.9.2
+  cpuImage: quay.io/ecosystem-appeng/vllm:cpu-v0.9.2
+
+secret:
+  enabled: true
+  hf_token: "hf_your_token_here"
+
+models:
+  llama-3-2-3b-instruct:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: true
+    args:
+      - --enable-auto-tool-choice
+      - --chat-template
+      - /chat-templates/tool_chat_template_llama3.2_json.jinja
+      - --tool-call-parser
+      - llama3_json
+      - --max-model-len
+      - "30544"
+  
+  llama-guard-3-8b:
+    id: meta-llama/Llama-Guard-3-8B
+    enabled: true
+    args:
+      - --max-model-len
+      - "14336"
+  
+  qwen-2-5-vl-3b-instruct:
+    id: Qwen/Qwen2.5-VL-3B-Instruct
+    enabled: true
+    args:
+      - --max-model-len
+      - "30544"
+      - --enable-auto-tool-choice
+      - --chat-template
+      - /chat-templates/tool_chat_template_qwen.jinja
+      - --tool-call-parser
+      - llama3_json
+```
+
+## Usage
+
+### Accessing Model Endpoints
+
+After deployment, models are available through OpenShift AI inference endpoints:
+
+```bash
+# List inference services
+oc get inferenceservices
+
+# Get model endpoint URL
+oc get inferenceservice llama-3-2-3b-instruct -o jsonpath='{.status.url}'
+
+# Port forward for local access
+oc port-forward svc/llama-3-2-3b-instruct-predictor 8080:80
+```
+
+### OpenAI-Compatible API
+
+The vLLM runtime provides OpenAI-compatible endpoints:
+
+```bash
+# List available models
+curl http://localhost:8080/v1/models
+
+# Generate completions
+curl -X POST http://localhost:8080/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-3.2-3B-Instruct",
+    "prompt": "What is artificial intelligence?",
+    "max_tokens": 100,
+    "temperature": 0.7
+  }'
+
+# Chat completions
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-3.2-3B-Instruct",
+    "messages": [
+      {"role": "user", "content": "Hello, how are you?"}
+    ],
+    "max_tokens": 100
+  }'
+```
+
+### Tool Calling Support
+
+Models with tool calling enabled support function calls:
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-3.2-3B-Instruct",
+    "messages": [
+      {"role": "user", "content": "What is the weather like in New York?"}
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get weather information",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {"type": "string"}
+            }
+          }
+        }
+      }
+    ]
+  }'
+```
+
+## Monitoring and Troubleshooting
+
+### Checking Service Health
+
+```bash
+# Check inference services
+oc get inferenceservices
+
+# Check serving runtime
+oc get servingruntimes vllm-serving-runtime
+
+# Check model pods
+oc get pods -l serving.kserve.io/inferenceservice=llama-3-2-3b-instruct
+```
+
+### Viewing Logs
+
+```bash
+# Model serving logs
+oc logs -l serving.kserve.io/inferenceservice=llama-3-2-3b-instruct -f
+
+# Serving runtime logs
+oc logs -l app=vllm-serving-runtime -f
+
+# Check model loading progress
+oc describe inferenceservice llama-3-2-3b-instruct
+```
+
+### Common Issues
+
+1. **Model Download Failures**:
+   - Check HuggingFace token validity
+   - Verify model access permissions
+   - Ensure sufficient storage space
+   - Check internet connectivity
+
+2. **GPU Resource Issues**:
+   - Verify GPU nodes are available
+   - Check GPU resource limits
+   - Ensure NVIDIA device plugin is running
+   - Validate GPU toleration settings
+
+3. **Memory/Storage Issues**:
+   - Large models require significant memory
+   - Check node memory availability
+   - Verify storage class supports large volumes
+   - Monitor resource usage
+
+4. **Serving Runtime Issues**:
+   - Check container image accessibility
+   - Verify serving runtime configuration
+   - Validate chat template configurations
+   - Check environment variable settings
+
+### Resource Requirements by Model Size
+
+#### Small Models (1B-3B parameters)
+```yaml
+resources:
+  requests:
+    memory: "8Gi"
+    cpu: "2000m"
+  limits:
+    memory: "16Gi"
+    cpu: "4000m"
+    nvidia.com/gpu: "1"
+```
+
+#### Medium Models (8B parameters)
+```yaml
+resources:
+  requests:
+    memory: "16Gi"
+    cpu: "4000m"
+  limits:
+    memory: "32Gi"
+    cpu: "8000m"
+    nvidia.com/gpu: "1"
+```
+
+#### Large Models (70B parameters)
+```yaml
+resources:
+  requests:
+    memory: "64Gi"
+    cpu: "8000m"
+  limits:
+    memory: "128Gi"
+    cpu: "16000m"
+    nvidia.com/gpu: "4"
+```
+
+### GPU Configuration
+
+For optimal GPU performance:
+
+```yaml
+tolerations:
+  - key: nvidia.com/gpu
+    effect: NoSchedule
+    operator: Exists
+
+nodeSelector:
+  nvidia.com/gpu.present: "true"
+```
+
+## Security Considerations
+
+### HuggingFace Token Management
+
+```bash
+# Create secret manually (recommended for production)
+oc create secret generic huggingface-secret \
+  --from-literal=HF_TOKEN=your_token_here
+
+# Use existing secret
+helm install llm-service ./helm \
+  --set secret.enabled=false
+```
+
+### Network Security
+
+- Models serve on internal cluster networks by default
+- Use NetworkPolicies to restrict access
+- Enable TLS for external access
+- Consider authentication for production deployments
+
+## Scaling and Management
+
+### Model Scaling
+
+```yaml
+models:
+  llama-3-2-3b-instruct:
+    enabled: true
+    replicas: 3  # Scale model instances
+    resources:
+      limits:
+        nvidia.com/gpu: "1"
+```
+
+### A/B Testing
+
+Deploy multiple model versions:
+
+```yaml
+models:
+  llama-3-2-3b-instruct-v1:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: true
+  llama-3-2-3b-instruct-v2:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: true
+    args:
+      - --temperature
+      - "0.5"
+```
+
+## Upgrading
+
+```bash
+# Upgrade with new model configurations
+helm upgrade llm-service ./helm \
+  --set models.llama-3-1-8b-instruct.enabled=true
+
+# Check rollout status
+oc get inferenceservices
+```
+
+## Uninstalling
+
+```bash
+# Remove chart and all resources
+helm uninstall llm-service
+
+# Clean up inference services (if needed)
+oc delete inferenceservices -l app.kubernetes.io/name=llm-service
+
+# Remove serving runtime
+oc delete servingruntimes vllm-serving-runtime
+
+# Remove secrets (if needed)
+oc delete secret huggingface-secret
+```
+
+## Integration with Other Components
+
+This chart integrates with:
+
+- **OpenShift AI/KServe**: Model serving infrastructure
+- **LlamaStack**: Unified AI stack integration
+- **Ingestion Pipeline**: Document processing workflows
+- **MCP Servers**: External tool integration
+- **PGVector**: Vector storage for embeddings
+
+## Advanced Configuration
+
+### Custom Model Registry
+
+```yaml
+models:
+  custom-model:
+    id: your-org/custom-llama-model
+    enabled: true
+    registry: "your-registry.com"
+    args:
+      - --custom-arg
+      - value
+```
+
+### Multi-Tenancy
+
+Deploy models in different namespaces:
+
+```bash
+# Deploy for team A
+helm install llm-service-team-a ./helm \
+  --namespace team-a \
+  --set models.llama-3-2-3b-instruct.enabled=true
+
+# Deploy for team B  
+helm install llm-service-team-b ./helm \
+  --namespace team-b \
+  --set models.llama-3-1-8b-instruct.enabled=true
+```
+
+### Observability
+
+Monitor model performance:
+
+```yaml
+servingRuntime:
+  env:
+    - name: PROMETHEUS_MULTIPROC_DIR
+      value: /tmp/prometheus
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: http://jaeger-collector:4317
+```
