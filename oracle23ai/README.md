@@ -174,22 +174,22 @@ helm install tpcds-loader helm/ -f values-loader-only.yaml -n oracle23ai
 helm status oracle23ai -n oracle23ai
 
 # Watch pods
-kubectl get pods -n oracle23ai -w
+oc get pods -n oracle23ai -w
 
 # Check Oracle logs
-kubectl logs -f oracle23ai-0 -n oracle23ai
+oc logs -f oracle23ai-0 -n oracle23ai
 
 # Check TPC-DS data loading
-kubectl logs -f job/oracle23ai-tpcds-populate -n oracle23ai
+oc logs -f job/oracle23ai-tpcds-populate -n oracle23ai
 ```
 
 ### Database Connection
 ```bash
 # Get generated password
-kubectl get secret oracle23ai -n oracle23ai -o jsonpath='{.data.password}' | base64 -d
+oc get secret oracle23ai -n oracle23ai -o jsonpath='{.data.password}' | base64 -d
 
 # Port forward for external access
-kubectl port-forward svc/oracle23ai 1521:1521 -n oracle23ai
+oc port-forward svc/oracle23ai 1521:1521 -n oracle23ai
 
 # Connect using sqlplus or any Oracle client
 sqlplus system/<password>@localhost:1521/freepdb1
@@ -198,7 +198,7 @@ sqlplus system/<password>@localhost:1521/freepdb1
 ### Verify TPC-DS Data
 ```bash
 # Check if data was loaded successfully
-kubectl exec oracle23ai-0 -n oracle23ai -- sqlplus -s system/<password>@localhost:1521/freepdb1 <<EOF
+oc exec oracle23ai-0 -n oracle23ai -- sqlplus -s system/<password>@localhost:1521/freepdb1 <<EOF
 SELECT table_name, num_rows FROM user_tables WHERE table_name LIKE '%STORE%';
 EXIT;
 EOF
@@ -275,7 +275,7 @@ tpcds:
 **Oracle Pod Not Ready**
 ```bash
 # Check Oracle logs for initialization issues
-kubectl logs oracle23ai-0 -n oracle23ai
+oc logs oracle23ai-0 -n oracle23ai
 
 # Increase readiness probe timeout
 helm upgrade oracle23ai helm/ --set oracle.probes.readiness.failureThreshold=30
@@ -284,19 +284,19 @@ helm upgrade oracle23ai helm/ --set oracle.probes.readiness.failureThreshold=30
 **TPC-DS Job Fails**
 ```bash
 # Check init container logs
-kubectl logs <tpcds-pod> -c wait-for-oracle-complete-readiness -n oracle23ai
+oc logs <tpcds-pod> -c wait-for-oracle-complete-readiness -n oracle23ai
 
 # Check main container logs
-kubectl logs <tpcds-pod> -c tpcds-populate -n oracle23ai
+oc logs <tpcds-pod> -c tpcds-populate -n oracle23ai
 ```
 
 **Permission Denied**
 ```bash
 # Ensure SCC is created (OpenShift)
-kubectl get scc oracle23ai-scc
+oc get scc oracle23ai-scc
 
 # Check service account permissions
-kubectl describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
+oc describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
 ```
 
 ## 🗑️ Cleanup
@@ -307,13 +307,13 @@ kubectl describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
 helm uninstall oracle23ai -n oracle23ai
 
 # Clean up persistent data
-kubectl delete pvc --all -n oracle23ai
+oc delete pvc --all -n oracle23ai
 
 # Remove namespace
-kubectl delete namespace oracle23ai
+oc delete namespace oracle23ai
 
 # Remove SCC (OpenShift)
-kubectl delete scc oracle23ai-scc
+oc delete scc oracle23ai-scc
 ```
 
 ### Partial Cleanup (Keep Database)
