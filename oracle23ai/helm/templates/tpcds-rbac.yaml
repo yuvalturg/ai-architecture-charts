@@ -1,0 +1,51 @@
+{{/*
+RBAC for TPC-DS Job to check Oracle pod status
+This is required for init containers to use kubectl wait
+*/}}
+{{- if and .Values.installation.installLoader .Values.tpcds.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-loader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds-role
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-loader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds-binding
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-loader
+subjects:
+- kind: ServiceAccount
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

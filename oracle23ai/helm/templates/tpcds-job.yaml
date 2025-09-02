@@ -1,0 +1,295 @@
+{{/*
+TPC-DS Data Population Job - Pure Helm Implementation
+Replaces install.sh script logic with Kubernetes-native dependency management
+*/}}
+{{- if and .Values.installation.installLoader .Values.tpcds.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}-tpcds-populate
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-loader
+  {{- with .Values.tpcds.job.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  backoffLimit: {{ .Values.tpcds.job.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.tpcds.job.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "oracle23ai-unified.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: data-loader
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "oracle23ai-unified.fullname" . }}-tpcds
+      
+      initContainers:
+      {{/* 
+      Init Container: Complete Oracle Readiness Check
+      Replicates entire install.sh wait_for_oracle_ready() + verify_system_user_access() logic
+      */}}
+      - name: wait-for-oracle-complete-readiness
+        image: "quay.io/rhkp/tpcds-util:latest"
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -e
+          echo "🔍 Complete Oracle readiness check - replicating install.sh logic..."
+          
+          # Set writable HOME directory
+          export HOME=/tmp
+          
+          # Step 1: Wait for Oracle secret (install.sh lines 213-226)
+          echo "⏳ Step 1: Waiting for Oracle secret to be created..."
+          elapsed=0
+          while [[ $elapsed -lt 60 ]]; do
+            # Use Kubernetes API directly via service account token
+            if curl -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/secrets/oracle23ai" \
+              > /dev/null 2>&1; then
+              echo "✅ Oracle secret found"
+              break
+            fi
+            echo "   Secret not yet created... (${elapsed}s)"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          
+          if [[ $elapsed -ge 60 ]]; then
+            echo "❌ Oracle secret not found after 60s"
+            exit 1
+          fi
+          
+          # Step 2: Wait for Oracle to show "DATABASE IS READY TO USE!" message
+          echo "⏳ Step 2: Waiting for Oracle database initialization..."
+          echo "   This may take 10-15 minutes for Oracle database initialization..."
+          echo "   Waiting for 'DATABASE IS READY TO USE!' message in Oracle logs..."
+          
+          # Poll for Oracle readiness message using Kubernetes API
+          elapsed=0
+          while [[ $elapsed -lt 900 ]]; do
+            # Get Oracle pod logs and check for readiness message
+            log_check=$(curl -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/pods/oracle23ai-0/log" \
+              | grep -c "DATABASE IS READY TO USE!" 2>/dev/null || echo "0")
+            log_check=$(echo "$log_check" | tr -d '\n\r' | head -1)
+            
+            if [[ "$log_check" -gt 0 ]]; then
+              echo "✅ Oracle database initialization completed!"
+              break
+            fi
+            
+            echo "   Database still initializing... (${elapsed}s elapsed)"
+            sleep 30
+            elapsed=$((elapsed + 30))
+          done
+          
+          if [[ $elapsed -ge 900 ]]; then
+            echo "❌ Oracle database failed to initialize within 900s"
+            exit 1
+          fi
+          
+          # Step 3: Verify Oracle database connectivity with retry (exactly like install.sh lines 259-280)
+          echo "⏳ Step 3: Verifying Oracle database connectivity..."
+          echo "   Using direct SQL connectivity test like install.sh..."
+          
+          # Password validation (install.sh verify_password_security)
+          if [[ -z "${ORACLE_PWD}" ]]; then
+            echo "❌ ORACLE_PWD environment variable is empty"
+            exit 1
+          fi
+          echo "✅ Oracle password available (length: ${#ORACLE_PWD})"
+          
+          # Configure tpcds-util for connectivity test
+          tpcds-util config set \
+            --host "oracle23ai" \
+            --port "1521" \
+            --service-name "freepdb1" \
+            --username "system" \
+            --password "${ORACLE_PWD}"
+          
+          # Database connectivity test with retry (adapted from install.sh logic)
+          max_attempts=5
+          attempt=1
+          
+          while [[ $attempt -le $max_attempts ]]; do
+            echo "   Connection attempt ${attempt}/${max_attempts}..."
+            
+            # Test SYSTEM user connection using tpcds-util (equivalent to sqlplus test)
+            if tpcds-util db test >/dev/null 2>&1; then
+              echo "✅ Oracle database is ready and accepting connections!"
+              break
+            else
+              echo "   Database not ready yet, waiting 15s before retry..."
+            fi
+            
+            if [[ $attempt -lt $max_attempts ]]; then
+              sleep 15
+            fi
+            attempt=$((attempt + 1))
+          done
+          
+          if [[ $attempt -gt $max_attempts ]]; then
+            echo "❌ Oracle database not accepting connections after ${max_attempts} attempts"
+            exit 1
+          fi
+          
+          # Step 4: Verify SYSTEM user access for TPC-DS operations (same test as Step 3)
+          echo "⏳ Step 4: Verifying SYSTEM user access for TPC-DS operations..."
+          
+          max_attempts=3
+          attempt=1
+          
+          while [[ $attempt -le $max_attempts ]]; do
+            echo "   SYSTEM access attempt ${attempt}/${max_attempts}..."
+            
+            # Same connectivity test as Step 3 - verify SYSTEM user access
+            if tpcds-util db test >/dev/null 2>&1; then
+              echo "✅ SYSTEM user has access to freepdb1 for TPC-DS operations"
+              break
+            else
+              echo "   SYSTEM access not ready yet..."
+            fi
+            
+            if [[ $attempt -lt $max_attempts ]]; then
+              echo "   Waiting 15s before retry..."
+              sleep 15
+            fi
+            attempt=$((attempt + 1))
+          done
+          
+          if [[ $attempt -gt $max_attempts ]]; then
+            echo "❌ SYSTEM user cannot access freepdb1 after ${max_attempts} attempts"
+            exit 1
+          fi
+          
+          echo "🎉 All install.sh readiness checks completed successfully!"
+          echo "✅ Oracle database is fully ready for TPC-DS data loading"
+        
+        env:
+        - name: ORACLE_PWD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.tpcds.database.existingSecret }}
+              key: {{ .Values.tpcds.database.passwordKey }}
+        
+        resources:
+          {{- toYaml .Values.tpcds.job.resources.initContainers.waitForOracle | nindent 10 }}
+
+      containers:
+      {{/* 
+      Main Container: TPC-DS Data Population
+      Replaces install.sh tpcds data loading steps
+      */}}
+      - name: tpcds-populate
+        image: "quay.io/rhkp/tpcds-util:latest"
+        imagePullPolicy: Always
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -e
+          echo "🚀 Starting TPC-DS data population (Helm-native approach)"
+          echo "   Replaces install.sh data loading logic"
+          echo "   Target: {{ .Values.tpcds.schemaName }} schema"
+          echo "   Scale Factor: {{ .Values.tpcds.scaleFactor }}"
+          echo ""
+          
+          # Set writable HOME directory for tpcds-util config
+          export HOME=/tmp
+          
+          # Configure tpcds-util with parameters from values.yaml (without schema-name)
+          echo "⚙️ Configuring TPC-DS utility from Helm values..."
+          tpcds-util config set \
+            --host "${DB_HOST}" \
+            --port "${DB_PORT}" \
+            --service-name "${DB_SERVICE}" \
+            --username "${DB_USERNAME}" \
+            --password "${ORACLE_PWD}" \
+            --default-scale "${SCALE_FACTOR}" \
+            --parallel-workers "${PARALLEL_WORKERS}" \
+            --output-dir "/tmp/tpcds_data"
+          
+          echo "🔄 Autocommit enabled for transaction persistence"
+          echo "📋 Current configuration:"
+          tpcds-util config show
+          echo ""
+          
+          # Final connectivity test before data loading
+          echo "🔌 Final database connectivity test..."
+          if ! tpcds-util db test; then
+            echo "❌ Database connection failed - cannot proceed"
+            exit 1
+          fi
+          echo ""
+          
+          # Create TPC-DS schema tables (replaces install.sh schema creation)
+          echo "🗃️ Creating TPC-DS schema tables in SYSTEM schema..."
+          if ! tpcds-util schema create --schema-file /app/oracle_tpcds_schema.sql --schema "${TARGET_SCHEMA}"; then
+            echo "❌ Schema creation failed - cannot proceed"
+            exit 1
+          fi
+          echo ""
+          
+          # Generate synthetic data (replaces install.sh data generation)
+          echo "🏭 Generating synthetic TPC-DS data..."
+          if ! tpcds-util generate data --scale "${SCALE_FACTOR}"; then
+            echo "❌ Data generation failed - cannot proceed"
+            exit 1
+          fi
+          echo ""
+          
+          # Load data into Oracle (replaces install.sh data loading)
+          echo "📤 Loading data into SYSTEM schema with autocommit..."
+          if ! tpcds-util load data --schema "${TARGET_SCHEMA}" --parallel "${PARALLEL_WORKERS}"; then
+            echo "❌ Data loading failed - cannot proceed"
+            exit 1
+          fi
+          echo ""
+          
+          # Verification (replaces install.sh verify_tpcds_data_loading)
+          echo "🔍 Verifying data loading..."
+          echo "📋 Table statistics for SYSTEM schema:"
+          tpcds-util db info --schema "${TARGET_SCHEMA}"
+          echo ""
+          
+          echo "🎉 TPC-DS data population completed successfully!"
+          echo "✅ All install.sh functionality completed via Helm"
+        
+        env:
+        - name: ORACLE_PWD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.tpcds.database.existingSecret }}
+              key: {{ .Values.tpcds.database.passwordKey }}
+        - name: DB_HOST
+          value: {{ .Values.tpcds.database.host | quote }}
+        - name: DB_PORT
+          value: {{ .Values.tpcds.database.port | quote }}
+        - name: DB_SERVICE
+          value: {{ .Values.tpcds.database.serviceName | quote }}
+        - name: DB_USERNAME
+          value: {{ .Values.tpcds.username | quote }}
+        - name: TARGET_SCHEMA
+          value: {{ .Values.tpcds.schemaName | quote }}
+        - name: SCALE_FACTOR
+          value: {{ .Values.tpcds.scaleFactor | quote }}
+        - name: PARALLEL_WORKERS
+          value: {{ .Values.tpcds.parallel | quote }}
+        - name: ORACLE_AUTOCOMMIT
+          value: "ON"
+        
+        volumeMounts:
+        - name: tpcds-data
+          mountPath: /home/tpcds/tpcds_data
+        
+        resources:
+          {{- toYaml .Values.tpcds.job.resources.tpcdsPopulate | nindent 10 }}
+
+      volumes:
+      - name: tpcds-data
+        emptyDir:
+          sizeLimit: 5Gi
+{{- end }}

@@ -1,0 +1,23 @@
+apiVersion: v2
+name: oracle23ai-unified
+description: A unified Helm chart for Oracle 23ai Database with TPC-DS data loading
+type: application
+version: 1.0.0
+appVersion: "23ai"
+
+keywords:
+  - oracle
+  - database
+  - ai
+  - tpc-ds
+  - benchmark
+
+maintainers:
+  - name: Oracle 23ai Team
+    email: support@oracle.com
+
+dependencies: []
+
+annotations:
+  category: Database
+  license: Oracle Free Use Terms and Conditions

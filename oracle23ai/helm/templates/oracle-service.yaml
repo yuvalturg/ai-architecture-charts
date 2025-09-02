@@ -1,0 +1,25 @@
+{{- if .Values.installation.installDB }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  type: {{ .Values.oracle.service.type }}
+  ports:
+    - port: {{ .Values.oracle.service.port }}
+      targetPort: oracle
+      protocol: TCP
+      name: oracle
+    {{- if .Values.oracle.monitoring.enabled }}
+    - port: {{ .Values.oracle.monitoring.exporterPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+    {{- end }}
+  selector:
+    {{- include "oracle23ai-unified.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+{{- end }}

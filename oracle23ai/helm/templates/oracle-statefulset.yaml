@@ -1,0 +1,155 @@
+{{/*
+Oracle 23ai StatefulSet with Enhanced Readiness Probes
+Replaces install.sh logic with comprehensive Kubernetes-native health checks
+*/}}
+{{- if .Values.installation.installDB }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "oracle23ai-unified.fullname" . }}
+  labels:
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  replicas: {{ .Values.oracle.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oracle23ai-unified.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  {{- with .Values.oracle.volumeClaimTemplates }}
+  volumeClaimTemplates:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.oracle.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "oracle23ai-unified.labels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+        {{- with .Values.oracle.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.oracle.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "oracle23ai-unified.serviceAccountName" . }}
+      {{- with .Values.oracle.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: oracle23ai
+          {{- with .Values.oracle.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.oracle.image.repository }}:{{ .Values.oracle.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.oracle.image.pullPolicy }}
+          env:
+            {{- toYaml .Values.oracle.env | nindent 12 }}
+          ports:
+            - name: oracle
+              containerPort: {{ .Values.oracle.service.port }}
+              protocol: TCP
+          {{/* 
+          Corrected readiness probe that matches install.sh logic:
+          - Uses the same FREEPDB1 connectivity test as install.sh line 264
+          - Simple and reliable like the working helm-db approach
+          */}}
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Test FREEPDB1 connectivity exactly like install.sh does
+                  echo 'SELECT 1 FROM DUAL;' | sqlplus -s system/"${ORACLE_PWD}"@localhost:1521/freepdb1 | grep -q "1"
+            initialDelaySeconds: {{ .Values.oracle.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.oracle.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.oracle.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.oracle.probes.readiness.failureThreshold }}
+          
+          {{/* Simple liveness probe using sysdba (like original) */}}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "SELECT 1 FROM DUAL;" | sqlplus -s / as sysdba | grep -q "1"
+            initialDelaySeconds: {{ .Values.oracle.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.oracle.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.oracle.probes.liveness.timeoutSeconds }}
+          
+          {{- with .Values.oracle.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.oracle.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        
+        {{/* Optional monitoring exporter */}}
+        {{- if .Values.oracle.monitoring.enabled }}
+        - name: metrics-exporter
+          image: python:3.9-alpine
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.oracle.monitoring.exporterPort }}
+              protocol: TCP
+          command:
+            - python3
+            - -c
+            - |
+              import http.server
+              import socketserver
+              
+              metrics_content = '''# HELP oracle23ai_up Oracle 23ai database status
+              # TYPE oracle23ai_up gauge
+              oracle23ai_up{instance="oracle23ai-0"} 1
+              # HELP oracle23ai_info Oracle 23ai information
+              # TYPE oracle23ai_info gauge
+              oracle23ai_info{version="23ai",chart="oracle23ai-unified"} 1
+              '''
+              
+              class MetricsHandler(http.server.BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      if self.path == '/metrics':
+                          self.send_response(200)
+                          self.send_header('Content-type', 'text/plain')
+                          self.end_headers()
+                          self.wfile.write(metrics_content.encode())
+                      else:
+                          self.send_response(404)
+                          self.end_headers()
+              
+              with socketserver.TCPServer(("", {{ .Values.oracle.monitoring.exporterPort }}), MetricsHandler) as httpd:
+                  httpd.serve_forever()
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+        {{- end }}
+      
+      {{- with .Values.oracle.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.oracle.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.oracle.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,204 @@
+# Unified Oracle 23ai + TPC-DS Helm Chart Configuration
+# This chart deploys Oracle 23ai database and loads TPC-DS data using a single helm install
+
+# Global configuration
+global:
+  namespace: oracle23ai
+
+# Oracle Database Configuration
+oracle:
+  # Oracle Database requires single replica (cannot scale horizontally)
+  replicaCount: 1
+
+  image:
+    repository: container-registry.oracle.com/database/free
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+  imagePullSecrets: []
+
+  nameOverride: "oracle23ai"
+  fullnameOverride: "oracle23ai"
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+
+  securityContextConstraint:
+    create: true
+
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    fsGroup: 54321
+
+  securityContext:
+    runAsUser: 54321
+    runAsGroup: 54321
+    runAsNonRoot: true
+
+  service:
+    type: ClusterIP
+    port: 1521
+
+  env:
+    - name: ORACLE_PWD
+      valueFrom:
+        secretKeyRef:
+          key: password
+          name: oracle23ai
+    - name: ORACLE_CHARACTERSET
+      value: "AL32UTF8"
+    - name: ORACLE_EDITION
+      value: "free"
+    - name: ENABLE_ARCHIVELOG
+      value: "true"
+
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+
+  # Enhanced health check configuration - tuned for Oracle 23ai startup
+  probes:
+    readiness:
+      initialDelaySeconds: 180  # Allow time for Oracle initialization
+      periodSeconds: 60        # Check every minute
+      timeoutSeconds: 10
+      failureThreshold: 20     # Allow up to 20 minutes total
+    liveness:
+      initialDelaySeconds: 300  # Start liveness checks after 5 minutes
+      periodSeconds: 120       # Check every 2 minutes
+      timeoutSeconds: 30
+
+  autoscaling:
+    enabled: false
+
+  volumeClaimTemplates:
+    - metadata:
+        name: oracle-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+
+  volumeMounts:
+    - mountPath: /opt/oracle/oradata
+      name: oracle-data
+
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+  # Secret configuration - uses environment variables, values.yaml, or auto-generation
+  secret:
+    # Priority order: Environment Variables -> values.yaml -> Auto-generated
+    password: ""  # Leave empty to auto-generate secure password
+    host: oracle23ai
+    port: "1521"
+    serviceName: "freepdb1"
+    sid: "FREE"
+    
+    # Use existing secret instead of creating new one
+    existingSecret: ""  # Set to existing secret name
+    passwordKey: "password"  # Key name in existing secret
+
+  # AI-specific configuration
+  ai:
+    vectorMemoryTarget: "1G"
+    enableVectorIndex: true
+    enableJsonDuality: true
+    enableGraphAnalytics: true
+
+  # Database initialization
+  initdb:
+    enabled: true
+    scripts: []
+
+  # Additional users with auto-generated passwords
+  users: []
+
+  # Monitoring with Prometheus
+  monitoring:
+    enabled: false
+    exporterImage: "iamseth/oracledb_exporter:latest"
+    exporterPort: 9161
+    serviceMonitor:
+      enabled: false
+      interval: "30s"
+      scrapeTimeout: "10s"
+
+# TPC-DS Data Loader Configuration
+tpcds:
+  # Enable TPC-DS data loading
+  enabled: true
+  
+  # Database connection (references Oracle service)
+  database:
+    host: oracle23ai
+    port: "1521"
+    serviceName: "freepdb1"
+    existingSecret: "oracle23ai"
+    passwordKey: "password"
+
+  # TPC-DS Configuration
+  username: "SYSTEM"  # Use SYSTEM user
+  password: ""  # Will use Oracle system password from secret
+  schemaName: "SYSTEM"  # Use SYSTEM schema
+  scaleFactor: 1
+  parallel: 2
+
+  # Job configuration with comprehensive readiness logic
+  job:
+    # Remove post-install hook annotations for manual triggering
+    annotations: {}
+    
+    # Job timeout and retry configuration
+    activeDeadlineSeconds: 3600  # 1 hour
+    backoffLimit: 2
+    
+    # Resource configuration
+    resources:
+      initContainers:
+        verifyPasswords:
+          requests:
+            memory: "16Mi"
+            cpu: "25m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
+        waitForOracle:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      
+      tpcdsPopulate:
+        requests:
+          memory: "1Gi"
+          cpu: "1"
+        limits:
+          memory: "2Gi"
+          cpu: "2"
+
+  # Service Account for the job
+  serviceAccount:
+    create: false  # Use default service account for jobs
+    name: ""
+
+# Installation Control
+installation:
+  # Controls what gets deployed
+  installDB: true        # Install Oracle database
+  installLoader: true    # Install TPC-DS loader
+  
+  # Sequencing control - loader waits for DB readiness via init containers
+  waitForDbReadiness: true  # Enable comprehensive DB readiness checks

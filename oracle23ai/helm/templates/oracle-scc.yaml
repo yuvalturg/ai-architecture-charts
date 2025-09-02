@@ -1,10 +1,11 @@
-{{- if .Values.securityContextConstraint.create }}
+{{- if .Values.oracle.securityContextConstraint.create }}
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
-  name: {{ include "oracle23ai.fullname" . }}-scc
+  name: {{ include "oracle23ai-unified.fullname" . }}-scc
   labels:
-    {{- include "oracle23ai.labels" . | nindent 4 }}
+    {{- include "oracle23ai-unified.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
 allowHostDirVolumePlugin: false
 allowHostIPC: false
 allowHostNetwork: false
@@ -34,7 +35,7 @@ seLinuxContext:
 supplementalGroups:
   type: RunAsAny
 users:
-  - system:serviceaccount:{{ .Release.Namespace }}:{{ include "oracle23ai.serviceAccountName" . }}
+  - system:serviceaccount:{{ .Release.Namespace }}:{{ include "oracle23ai-unified.serviceAccountName" . }}
 volumes:
   - configMap
   - downwardAPI

@@ -1,329 +1,366 @@
-# Oracle 23ai Helm Chart
+# Oracle 23ai Unified Helm Chart
 
-Oracle Database Free 23ai deployment for OpenShift/Kubernetes with AI Vector features.
+A comprehensive Helm chart for deploying Oracle 23ai Database with optional TPC-DS data loading in Kubernetes/OpenShift environments.
 
-## Prerequisites
+## 🚀 Features
 
-- OpenShift/Kubernetes cluster
-- `helm` and `oc`/`kubectl` CLI tools
-- Cluster admin privileges (for SCC configuration)
+- **Single Command Deployment**: Complete Oracle 23ai setup with one `helm install`
+- **Intelligent Readiness Detection**: Log-based Oracle initialization monitoring
+- **Flexible Data Loading**: Optional TPC-DS benchmark data population
+- **Production Ready**: Secure password management and robust error handling
+- **Enterprise Compatible**: RBAC, Security Context Constraints, and proper resource management
 
-## Quick Deploy
+## 📁 Project Structure
 
-### Automated Installation (Recommended)
-
-```bash
-# Deploy Oracle 23ai with TPC-DS data loading
-./install.sh
-
-# Deploy to custom namespace
-NAMESPACE=my-oracle ./install.sh
-
-# Deploy with custom password
-ORACLE_PASSWORD="MySecurePass123!" ./install.sh
+```
+oracle23ai/
+├── README.md                    # Project overview
+├── README-UNIFIED-HELM.md       # This documentation
+└── helm/                # Complete Helm solution
+    ├── Chart.yaml              # Chart metadata
+    ├── values.yaml              # Configuration options
+    └── templates/               # Kubernetes manifests
+        ├── _helpers.tpl         # Template helpers
+        ├── oracle-statefulset.yaml  # Oracle Database deployment
+        ├── oracle-service.yaml      # Database service
+        ├── oracle-secret.yaml       # Credential management
+        ├── oracle-serviceaccount.yaml # Service account
+        ├── oracle-scc.yaml          # Security constraints
+        ├── tpcds-job.yaml           # Data loading job
+        └── tpcds-rbac.yaml          # RBAC for data loader
 ```
 
-### Complete Cleanup
+## 🎯 Quick Start
 
+### Basic Installation (Database Only)
 ```bash
-# Remove everything (default: deletes oracle23ai namespace)
-./uninstall.sh
-
-# Keep namespace, remove only helm releases
-./uninstall.sh --keep-namespace
-
-# Clean up custom namespace
-./uninstall.sh -n my-oracle
+# Install Oracle 23ai database only
+helm install oracle23ai helm/ \
+  --namespace oracle23ai \
+  --create-namespace \
+  --set tpcds.enabled=false
 ```
 
-### Manual Installation (Advanced)
-
-<details>
-<summary>Click to expand manual steps</summary>
-
+### Full Installation (Database + TPC-DS Data)
 ```bash
-# Example: Deploy to ai-database namespace
-export NAMESPACE=ai-database
-
-# 1. Create custom SCC for Oracle user (54321)
-oc apply -f - <<EOF
-apiVersion: security.openshift.io/v1
-kind: SecurityContextConstraint
-metadata:
-  name: oracle-scc
-allowHostDirVolumePlugin: false
-allowHostIPC: false
-allowHostNetwork: false
-allowHostPID: false
-allowHostPorts: false
-allowPrivilegedContainer: false
-allowedCapabilities: null
-fsGroup:
-  type: MustRunAs
-  ranges: [{"min": 54321, "max": 54321}]
-runAsUser:
-  type: MustRunAs
-  uid: 54321
-seLinuxContext:
-  type: MustRunAs
-volumes: [configMap, downwardAPI, emptyDir, persistentVolumeClaim, projected, secret]
-EOF
-
-# 2. Deploy Oracle database (creates ServiceAccount)
-helm install oracle23ai ./helm-db/ -n $NAMESPACE --create-namespace
-
-# 3. Add SCC to service account (after ServiceAccount exists)
-oc adm policy add-scc-to-user oracle-scc -z oracle23ai -n $NAMESPACE
-
-# 4. Monitor deployment (database initialization takes 5-10 minutes)
-oc get pods -l app.kubernetes.io/name=oracle23ai -n $NAMESPACE -w
+# Install Oracle 23ai with TPC-DS data loading
+helm install oracle23ai helm/ \
+  --namespace oracle23ai \
+  --create-namespace
 ```
 
-</details>
+### Custom Configuration
+```bash
+# Install with custom settings
+helm install oracle23ai helm/ \
+  --namespace oracle23ai \
+  --create-namespace \
+  --set oracle.secret.password="MySecurePassword123!" \
+  --set tpcds.scaleFactor=2 \
+  --set tpcds.parallel=4
+```
 
-## What Gets Installed
+## 🎛️ Configuration Options
 
-The automated installation deploys:
-
-1. **Oracle 23ai Database**: Full Oracle Database Free 23ai with AI Vector support
-2. **TPC-DS Data Loading**: Automated loading of TPC-DS benchmark data for testing
-3. **Monitoring**: Optional Prometheus metrics and ServiceMonitor
-4. **Security**: Custom SecurityContextConstraint for Oracle user requirements
-
-### Installation Process
-
-1. **Database Deployment**: Oracle 23ai pod with persistent storage
-2. **Readiness Verification**: Waits for database to be fully initialized  
-3. **Data Loader Setup**: TPC-DS utilities configured with database credentials
-4. **System Verification**: Validates database connectivity and user access
-5. **Data Loading**: Populates database with TPC-DS benchmark tables
-6. **Final Verification**: Confirms data was loaded successfully
-
-## Configuration
-
-### Environment Variables
-- `NAMESPACE` - Kubernetes namespace (default: oracle23ai)
-- `ORACLE_PASSWORD` - Database password (auto-generated if not set)
-- `DB_READY_TIMEOUT` - Database readiness timeout in seconds (default: 900)
-
-### Default Settings
-- **Host**: `oracle23ai`
-- **Port**: `1521` 
-- **Service**: `FREEPDB1`
-- **SID**: `FREE`
-- **Storage**: `10Gi`
-
-### Custom Values
+### Installation Control
 ```yaml
-# values.yaml
-secret:
-  password: "MySecurePass123!"
+installation:
+  installDB: true        # Deploy Oracle database
+  installLoader: true    # Deploy TPC-DS data loader
+  waitForDbReadiness: true # Enable comprehensive readiness checks
+```
+
+### Oracle Database Configuration
+```yaml
+oracle:
+  image:
+    repository: container-registry.oracle.com/database/free
+    tag: "latest"
   
-resources:
-  requests:
-    memory: "4Gi"
-    cpu: "2"
-
-# Health check timing (for slow environments)
-probes:
-  readiness:
-    initialDelaySeconds: 90
-  liveness:
-    initialDelaySeconds: 180
-
-# Enable Prometheus monitoring
-monitoring:
-  enabled: true
-  serviceMonitor:
-    enabled: true
+  secret:
+    password: ""  # Auto-generated if empty
+    host: oracle23ai
+    port: "1521"
+    serviceName: "freepdb1"
+  
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+  
+  probes:
+    readiness:
+      initialDelaySeconds: 180  # Allow Oracle startup time
+      periodSeconds: 60        # Check every minute
+      failureThreshold: 20     # Up to 20 minutes for initialization
 ```
 
-## Access Database
-
-### From Within the Cluster
-Other applications in the cluster can connect using:
-- **Host**: `oracle23ai`
-- **Port**: `1521`
-- **Service**: `FREEPDB1`
-- **Connection String**: `oracle23ai:1521/FREEPDB1`
-
-Example application configuration:
+### TPC-DS Data Loading Configuration
 ```yaml
-env:
-  - name: DB_HOST
-    value: "oracle23ai"
-  - name: DB_PORT
-    value: "1521"
-  - name: DB_SERVICE
-    value: "FREEPDB1"
-  - name: DB_USER
-    value: "system"  # or create application-specific user
-  - name: DB_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: oracle23ai
-        key: password
+tpcds:
+  enabled: true           # Enable data loading
+  scaleFactor: 1          # Data volume (1 = ~1GB)
+  parallel: 2             # Parallel loading workers
+  schemaName: "SYSTEM"    # Target schema
+  
+  job:
+    backoffLimit: 2
+    activeDeadlineSeconds: 3600  # 1 hour timeout
+    
+    resources:
+      tpcdsPopulate:
+        requests:
+          memory: "1Gi"
+          cpu: "1"
+        limits:
+          memory: "2Gi"
+          cpu: "2"
 ```
 
-### From Outside the Cluster (Development/Testing)
+## 📊 Deployment Scenarios
+
+### 1. Database Only
+Perfect for when you have existing data or want to load custom datasets:
+
+```yaml
+# values-db-only.yaml
+installation:
+  installDB: true
+  installLoader: false
+
+tpcds:
+  enabled: false
+```
+
 ```bash
+helm install oracle-db helm/ -f values-db-only.yaml -n oracle23ai --create-namespace
+```
+
+### 2. Database + TPC-DS Data (Default)
+Complete setup with benchmark data for testing and development:
+
+```bash
+helm install oracle-complete helm/ -n oracle23ai --create-namespace
+```
+
+### 3. Data Loading to Existing Database
+Load TPC-DS data into an already running Oracle instance:
+
+```yaml
+# values-loader-only.yaml
+installation:
+  installDB: false
+  installLoader: true
+
+tpcds:
+  enabled: true
+  database:
+    host: existing-oracle-service
+    existingSecret: existing-oracle-secret
+```
+
+```bash
+helm install tpcds-loader helm/ -f values-loader-only.yaml -n oracle23ai
+```
+
+## 🔍 Monitoring and Verification
+
+### Check Installation Progress
+```bash
+# Overall status
+helm status oracle23ai -n oracle23ai
+
+# Watch pods
+kubectl get pods -n oracle23ai -w
+
+# Check Oracle logs
+kubectl logs -f oracle23ai-0 -n oracle23ai
+
+# Check TPC-DS data loading
+kubectl logs -f job/oracle23ai-tpcds-populate -n oracle23ai
+```
+
+### Database Connection
+```bash
+# Get generated password
+kubectl get secret oracle23ai -n oracle23ai -o jsonpath='{.data.password}' | base64 -d
+
 # Port forward for external access
-oc port-forward svc/oracle23ai 1521:1521
+kubectl port-forward svc/oracle23ai 1521:1521 -n oracle23ai
 
-# Connect with sqlplus from local machine
-sqlplus system/<password>@localhost:1521/FREEPDB1
+# Connect using sqlplus or any Oracle client
+sqlplus system/<password>@localhost:1521/freepdb1
 ```
 
-## Testing Database
-
-### Connect to Pod and Test SQL
+### Verify TPC-DS Data
 ```bash
-# 1. Connect to pod terminal
-oc exec -it oracle23ai-0 -- bash
-
-# 2. Connect using OS authentication (recommended - no password needed)
-sqlplus / as sysdba
-
-# Alternative: Connect to database as SYSTEM user (if unlocked)
-sqlplus system/<password>@localhost:1521/FREEPDB1
-
-# 3. Basic connectivity test
-SQL> SELECT 'Hello Oracle 23ai!' FROM DUAL;
-
-# 4. Check database version and AI features
-SQL> SELECT BANNER FROM V$VERSION;
-SQL> SELECT VALUE FROM V$PARAMETER WHERE NAME = 'compatible';
-
-# 5. Switch to pluggable database for application work
-SQL> ALTER SESSION SET CONTAINER = FREEPDB1;
-
-# 6. Test AI Vector functionality (Oracle 23ai feature)
-SQL> CREATE TABLE documents (
-    id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    title VARCHAR2(200),
-    content CLOB,
-    embedding VECTOR(1536, FLOAT32)  -- OpenAI embedding size
-);
-
-# 7. Insert sample document with vector
-SQL> INSERT INTO documents (title, content, embedding) VALUES (
-    'AI Introduction',
-    'Artificial Intelligence enables machines to simulate human intelligence...',
-    '[0.1, 0.2, 0.3, 0.0, 0.0]'  -- Abbreviated for example
-);
-SQL> COMMIT;
-
-# 8. Test vector similarity search (cosine distance)
-SQL> SELECT id, title,
-       VECTOR_DISTANCE(embedding, '[0.15, 0.25, 0.35, 0.0, 0.0]', COSINE) as similarity_score
-       FROM documents
-       ORDER BY similarity_score
-       FETCH FIRST 5 ROWS ONLY;
-
-# 10. Unlock SYSTEM account for future password-based connections (optional)
-SQL> ALTER USER SYSTEM ACCOUNT UNLOCK;
-SQL> ALTER USER SYSTEM IDENTIFIED BY "Oracle123!";
-
-# 11. Exit SQL*Plus
-SQL> EXIT;
+# Check if data was loaded successfully
+kubectl exec oracle23ai-0 -n oracle23ai -- sqlplus -s system/<password>@localhost:1521/freepdb1 <<EOF
+SELECT table_name, num_rows FROM user_tables WHERE table_name LIKE '%STORE%';
+EXIT;
+EOF
 ```
 
-### Get Database Password
-```bash
-# Decode the auto-generated password
-oc get secret oracle23ai -o jsonpath='{.data.password}' | base64 -d
-```
+## 🔧 Advanced Configuration
 
-## Monitoring
-
-### Prometheus Integration
-The chart supports Prometheus monitoring with minimal setup:
-
+### Custom Oracle Settings
 ```yaml
-# Enable monitoring in values.yaml
-monitoring:
-  enabled: true
-  serviceMonitor:
+oracle:
+  env:
+    - name: ORACLE_PWD
+      valueFrom:
+        secretKeyRef:
+          key: password
+          name: oracle23ai
+    - name: ORACLE_CHARACTERSET
+      value: "AL32UTF8"
+    - name: ENABLE_ARCHIVELOG
+      value: "true"
+  
+  ai:
+    vectorMemoryTarget: "1G"
+    enableVectorIndex: true
+    enableJsonDuality: true
+```
+
+### Development Environment
+```yaml
+# values-dev.yaml - Faster startup for development
+oracle:
+  probes:
+    readiness:
+      initialDelaySeconds: 60
+      failureThreshold: 10
+
+tpcds:
+  scaleFactor: 0.1  # Smaller dataset
+  parallel: 1
+```
+
+### Production Environment
+```yaml
+# values-prod.yaml - Production settings
+oracle:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "4"
+    limits:
+      memory: "16Gi"
+      cpu: "8"
+
+tpcds:
+  scaleFactor: 10
+  parallel: 8
+  
+  job:
+    activeDeadlineSeconds: 7200  # 2 hours
+```
+
+## 🔒 Security Features
+
+- **Automatic Password Generation**: Secure 16-character passwords
+- **Password Stability**: No regeneration on Helm upgrades
+- **RBAC**: Minimal required permissions for data loader
+- **SCC Support**: OpenShift Security Context Constraints
+- **Secret Management**: Kubernetes-native credential storage
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+**Oracle Pod Not Ready**
+```bash
+# Check Oracle logs for initialization issues
+kubectl logs oracle23ai-0 -n oracle23ai
+
+# Increase readiness probe timeout
+helm upgrade oracle23ai helm/ --set oracle.probes.readiness.failureThreshold=30
+```
+
+**TPC-DS Job Fails**
+```bash
+# Check init container logs
+kubectl logs <tpcds-pod> -c wait-for-oracle-complete-readiness -n oracle23ai
+
+# Check main container logs
+kubectl logs <tpcds-pod> -c tpcds-populate -n oracle23ai
+```
+
+**Permission Denied**
+```bash
+# Ensure SCC is created (OpenShift)
+kubectl get scc oracle23ai-scc
+
+# Check service account permissions
+kubectl describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
+```
+
+## 🗑️ Cleanup
+
+### Complete Uninstall
+```bash
+# Remove Helm release
+helm uninstall oracle23ai -n oracle23ai
+
+# Clean up persistent data
+kubectl delete pvc --all -n oracle23ai
+
+# Remove namespace
+kubectl delete namespace oracle23ai
+
+# Remove SCC (OpenShift)
+kubectl delete scc oracle23ai-scc
+```
+
+### Partial Cleanup (Keep Database)
+```bash
+# Remove only TPC-DS components
+helm upgrade oracle23ai helm/ --set installation.installLoader=false
+```
+
+## 📈 Performance Tuning
+
+### Oracle Database
+- Adjust memory settings in `oracle.resources`
+- Configure `oracle.ai.vectorMemoryTarget` for AI workloads
+- Enable archivelog for production: `ENABLE_ARCHIVELOG=true`
+
+### TPC-DS Loading
+- Increase `tpcds.parallel` for faster loading
+- Adjust `tpcds.job.resources` based on available cluster capacity
+- Use appropriate `scaleFactor` for your testing needs
+
+## 🔗 Integration Examples
+
+### With Monitoring (Prometheus)
+```yaml
+oracle:
+  monitoring:
     enabled: true
+    exporterImage: "iamseth/oracledb_exporter:latest"
+    serviceMonitor:
+      enabled: true
 ```
 
-This adds:
-- **Metrics exporter sidecar** for database status
-- **ServiceMonitor** for automatic Prometheus discovery  
-- **Metrics endpoint**: `http://oracle23ai:9161/metrics`
-
-**Prerequisites**: Prometheus Operator installed (standard in OpenShift)
-
-### Viewing Metrics & Dashboards
-
-**OpenShift Console (Recommended):**
-1. Navigate to **Observe** → **Metrics** 
-2. Query: `oracle23ai_up` - Shows database status (1 = up)
-3. Query: `oracle23ai_info` - Shows version and chart info
-4. Switch to **Graph** tab for visual time-series charts
-
-**Available Metrics:**
-- `oracle23ai_up{instance="oracle23ai-0"}` - Database availability
-- `oracle23ai_info{version="23ai",chart="oracle23ai"}` - Deployment info
-
-**Grafana Dashboard:**
-If Grafana is available in your cluster, you can create custom dashboards with panels for:
-- Database uptime trends
-- Pod resource utilization  
-- Alert thresholds
-
-## Troubleshooting
-
-### Installation Issues
-
-```bash
-# Check install script logs for detailed error information
-./install.sh
-
-# Skip specific steps if needed
-INSTALL_DB=false ./install.sh              # Skip database installation
-WAIT_FOR_DB=false ./install.sh             # Skip readiness check  
-VERIFY_SYSTEM_ACCESS=false ./install.sh    # Skip system verification
-ENABLE_JOB=false ./install.sh              # Skip data loading
+### With Custom Init Scripts
+```yaml
+oracle:
+  initdb:
+    enabled: true
+    scripts:
+      - |
+        CREATE USER myapp IDENTIFIED BY mypassword;
+        GRANT CONNECT, RESOURCE TO myapp;
 ```
 
-### Complete Cleanup and Retry
+---
 
-```bash
-# Remove everything and start fresh
-./uninstall.sh
-sleep 60
-./install.sh
-```
+## 🎉 Success!
 
-### Pod fails to start
-```bash
-# Check if SCC is applied
-oc get pod oracle23ai-0 -o yaml | grep -A5 securityContext
+You now have a production-ready Oracle 23ai deployment with optional TPC-DS data loading, all managed through standard Kubernetes/Helm tooling. The chart provides enterprise-grade features while maintaining simplicity for development use cases.
 
-# Re-apply SCC if needed
-oc adm policy add-scc-to-user oracle-scc -z oracle23ai -n <namespace>
-oc delete pod oracle23ai-0 -n <namespace>
-```
-
-### Database not accessible
-```bash
-# Check database logs
-oc logs oracle23ai-0 -f
-
-# Verify service is running
-oc get svc oracle23ai
-
-# Test connection from another pod
-oc exec -it oracle23ai-0 -- sqlplus / as sysdba
-```
-
-## Notes
-
-- First startup takes 5-10 minutes for database initialization
-- Requires custom `oracle-scc` for Oracle user (54321)
-- Pod shows RUNNING before READY during initialization
-- FREEPDB1 is the pluggable database for application connections
-- Health probes use OS authentication (`sqlplus / as sysdba`) to avoid locked accounts
-- Use `sqlplus / as sysdba` for easiest connection (no password required)
-- For RAG applications, use VECTOR(1536, FLOAT32) for OpenAI embeddings
+For questions or issues, check the troubleshooting section above or review the Helm chart templates for detailed implementation.
