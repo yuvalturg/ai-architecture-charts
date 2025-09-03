@@ -87,6 +87,8 @@ spec:
             - name: LLAMA_STACK_AUTH_USER
               value: {{ .Values.authUser }}
           {{- end }}
+            - name: SIGN_DATABASE
+              value: {{ include "ingestion-pipeline.signDatabase" . | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}

@@ -1,3 +1,4 @@
+{{- if eq (include "ingestion-pipeline.signDatabase" .) "true" }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -144,3 +145,4 @@ spec:
                       key: user
           restartPolicy: Never
           serviceAccountName: pipeline-runner-dspa
+{{- end }}
