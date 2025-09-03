@@ -4,7 +4,7 @@ from typing import Optional
 from . import tasks
 
 
-def s3_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
+def s3_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str, sign_db: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
@@ -34,12 +34,13 @@ def s3_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
         store_task.set_caching_options(False)
         pipeline_tasks.append(store_task)
 
-        provenance_task = tasks.generate_provenance(
-            input_dir=fetch_task.outputs["output_dir"]
-        )
-        provenance_task.set_caching_options(False)
-        provenance_task.after(store_task)
-        pipeline_tasks.append(provenance_task)
+        if sign_db == "true":
+            provenance_task = tasks.generate_provenance(
+                input_dir=fetch_task.outputs["output_dir"]
+            )
+            provenance_task.set_caching_options(False)
+            provenance_task.after(store_task)
+            pipeline_tasks.append(provenance_task)
 
         for task in pipeline_tasks:
             kubernetes.use_secret_as_env(
@@ -50,7 +51,7 @@ def s3_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
     return _pipeline
 
 
-def url_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
+def url_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str, sign_db: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
@@ -80,7 +81,7 @@ def url_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
     return _pipeline
 
 
-def github_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str):
+def github_pipeline(pipeline_name: str, llamastack_base_url: str, auth_user: str, sign_db: str):
     @dsl.pipeline(name="fetch-and-store-pipeline")
     def _pipeline():
         from kfp import kubernetes
