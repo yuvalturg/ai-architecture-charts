@@ -2,7 +2,7 @@
 TPC-DS Data Population Job - Pure Helm Implementation
 Replaces install.sh script logic with Kubernetes-native dependency management
 */}}
-{{- if and .Values.installation.installLoader .Values.tpcds.enabled }}
+{{- if .Values.tpcds.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

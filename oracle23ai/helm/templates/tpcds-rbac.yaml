@@ -2,7 +2,7 @@
 RBAC for TPC-DS Job to check Oracle pod status
 This is required for init containers to use kubectl wait
 */}}
-{{- if and .Values.installation.installLoader .Values.tpcds.enabled }}
+{{- if .Values.tpcds.enabled }}
 ---
 apiVersion: v1
 kind: ServiceAccount

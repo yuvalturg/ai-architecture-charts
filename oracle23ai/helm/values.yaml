@@ -136,7 +136,7 @@ oracle:
 
 # TPC-DS Data Loader Configuration
 tpcds:
-  # Enable TPC-DS data loading
+  # Enable TPC-DS data loading - if true, installs both the loader infrastructure and loads the data
   enabled: true
   
   # Database connection (references Oracle service)
@@ -198,7 +198,6 @@ tpcds:
 installation:
   # Controls what gets deployed
   installDB: true        # Install Oracle database
-  installLoader: true    # Install TPC-DS loader
   
   # Sequencing control - loader waits for DB readiness via init containers
   waitForDbReadiness: true  # Enable comprehensive DB readiness checks

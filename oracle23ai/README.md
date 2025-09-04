@@ -66,7 +66,6 @@ helm install oracle23ai helm/ \
 ```yaml
 installation:
   installDB: true        # Deploy Oracle database
-  installLoader: true    # Deploy TPC-DS data loader
   waitForDbReadiness: true # Enable comprehensive readiness checks
 ```
 
@@ -101,7 +100,7 @@ oracle:
 ### TPC-DS Data Loading Configuration
 ```yaml
 tpcds:
-  enabled: true           # Enable data loading
+  enabled: true           # Enable data loading - installs both loader infrastructure and loads data
   scaleFactor: 1          # Data volume (1 = ~1GB)
   parallel: 2             # Parallel loading workers
   schemaName: "SYSTEM"    # Target schema
@@ -129,7 +128,6 @@ Perfect for when you have existing data or want to load custom datasets:
 # values-db-only.yaml
 installation:
   installDB: true
-  installLoader: false
 
 tpcds:
   enabled: false
@@ -153,7 +151,6 @@ Load TPC-DS data into an already running Oracle instance:
 # values-loader-only.yaml
 installation:
   installDB: false
-  installLoader: true
 
 tpcds:
   enabled: true
@@ -319,7 +316,7 @@ oc delete scc oracle23ai-scc
 ### Partial Cleanup (Keep Database)
 ```bash
 # Remove only TPC-DS components
-helm upgrade oracle23ai helm/ --set installation.installLoader=false
+helm upgrade oracle23ai helm/ --set tpcds.enabled=false
 ```
 
 ## 📈 Performance Tuning
