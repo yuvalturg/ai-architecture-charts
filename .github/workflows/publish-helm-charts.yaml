@@ -80,6 +80,7 @@ jobs:
           mkdir -p gh-pages
           for chart in */; do
             if [ -f "$chart/helm/Chart.yaml" ]; then
+              helm dependency update "$chart/helm"
               helm package "$chart/helm" -d gh-pages
             fi
           done
