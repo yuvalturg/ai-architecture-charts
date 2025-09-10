@@ -1,0 +1,34 @@
+# Git and version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.env
+.coverage
+htmlcov
+.pytest_cache
+.mypy_cache
+
+# Build artifacts
+*.egg-info
+dist
+build
+
+# Development files
+.actrc
+docker-compose.yml
+podman-compose.yml
+artifacts/
+scripts/
+tests/
+
+# Temporary files
+*.tmp
+*.log

@@ -26,6 +26,10 @@ jobs:
             file: mcp-servers/weather/Containerfile
             context: mcp-servers/weather/src
             chart: mcp-servers/helm/Chart.yaml
+          - name: oracle23ai-tpcds
+            file: oracle23ai/tpcds-util/Containerfile
+            context: oracle23ai/tpcds-util/src
+            chart: oracle23ai/helm/Chart.yaml
 
     steps:
       - name: Checkout
