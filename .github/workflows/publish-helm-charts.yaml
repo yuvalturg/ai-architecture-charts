@@ -28,7 +28,7 @@ jobs:
             chart: mcp-servers/helm/Chart.yaml
           - name: oracle23ai-tpcds
             file: oracle23ai/tpcds-util/Containerfile
-            context: oracle23ai/tpcds-util/src
+            context: oracle23ai/tpcds-util
             chart: oracle23ai/helm/Chart.yaml
 
     steps:
