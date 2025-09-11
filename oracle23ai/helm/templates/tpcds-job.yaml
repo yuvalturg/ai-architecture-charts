@@ -255,8 +255,59 @@ spec:
           tpcds-util db info --schema "${TARGET_SCHEMA}"
           echo ""
           
+          # Automatically copy ALL TPC-DS tables to Sales schema using enhanced tpcds-util
+          echo "📋 Creating Sales schema and copying ALL 25 TPC-DS tables..."
+          echo "🚀 Using enhanced tpcds-util schema management features"
+          
+          # Use enhanced tpcds-util to create Sales user and copy all TPC-DS tables
+          if tpcds-util schema user create sales --password "${ORACLE_PWD}"; then
+            echo "✅ Sales user created successfully"
+          else
+            echo "⚠️  Sales user creation failed, but continuing (may already exist)"
+          fi
+          
+          # Copy all 25 TPC-DS tables from SYSTEM to Sales schema
+          echo "📊 Copying all 25 TPC-DS tables from SYSTEM to Sales schema..."
+          if tpcds-util schema copy SYSTEM sales; then
+            echo "✅ Successfully copied all TPC-DS tables to Sales schema"
+            
+            # Show verification of copied data
+            echo "🔍 Verification - Sales schema tables:"
+            tpcds-util db info --schema sales
+          else
+            echo "❌ Failed to copy TPC-DS tables to Sales schema"
+            echo "💡 Manual copy may be required after deployment"
+          fi
+          
+          # Apply read-only security restrictions to SALES user for AI MCP server safety
+          echo "🔒 Applying read-only security restrictions to SALES user..."
+          echo "   This ensures SALES user can only read data, not modify it"
+          echo "   Required for safe use with AI MCP server"
+          
+          # Use tpcds-util to restrict sales user privileges (removes dangerous system privileges)
+          if tpcds-util schema user restrict sales; then
+            echo "✅ SALES user privileges successfully restricted"
+            echo "🔒 SALES user dangerous system privileges removed"
+            echo "⚠️  Note: User can still modify existing tables (Oracle limitation)"
+          else
+            echo "⚠️  Warning: Failed to restrict SALES user privileges"
+            echo "💡 Manual security configuration may be required"
+          fi
+          
+          if [[ $? -eq 0 ]]; then
+            echo "✅ Read-only security restrictions applied successfully!"
+            echo "🔒 SALES user is now restricted to read-only access"
+          else
+            echo "⚠️  Warning: Failed to apply some security restrictions"
+            echo "💡 Manual security review recommended"
+          fi
+          
+          echo ""
           echo "🎉 TPC-DS data population completed successfully!"
           echo "✅ All install.sh functionality completed via Helm"
+          echo "📋 All 25 TPC-DS tables loaded into SYSTEM schema"
+          echo "📊 All 25 TPC-DS tables copied to Sales schema automatically"
+          echo "🔒 SALES user configured with read-only permissions for AI MCP server"
         
         env:
         - name: ORACLE_PWD

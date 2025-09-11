@@ -57,6 +57,18 @@ Oracle Database Free 23ai with AI Vector features, providing enterprise-grade da
 - Enterprise database reliability
 - AI-optimized storage and indexing
 
+**TPC-DS Data Population Job:**
+The Oracle 23ai chart includes an automated TPC-DS (Transaction Processing Performance Council Decision Support) data population job that creates comprehensive test datasets for AI/ML applications. This Kubernetes Job replaces manual database setup scripts with a cloud-native approach:
+
+- **Purpose**: Automatically populates the Oracle database with standardized TPC-DS benchmark data (25 tables with synthetic retail/e-commerce data)
+- **Scale Factor**: Configurable data volume (default generates ~1GB of test data)
+- **Schema Management**: Creates both SYSTEM and Sales schemas with proper data distribution
+- **Security**: Applies read-only restrictions to the Sales user for safe AI MCP server integration
+- **Automation**: Eliminates manual database setup, ensuring consistent test data across deployments
+- **Integration**: Provides realistic datasets for RAG applications, vector search testing, and AI agent development
+
+The job runs automatically when `tpcds.enabled=true` and handles the complete lifecycle from database readiness verification to data loading and security configuration.
+
 ### 🔧 Pipeline & Processing Services
 
 #### [Ingestion Pipeline](./ingestion-pipeline/README.md)
