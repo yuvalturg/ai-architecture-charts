@@ -21,11 +21,7 @@ resources:
     cpu: 1000m
     memory: 1Gi
 
-podSecurityContext:
-  fsGroup: 0
-  fsGroupChangePolicy: OnRootMismatch
-  seccompProfile:
-    type: RuntimeDefault
+podSecurityContext: {}
 
 securityContext:
   allowPrivilegeEscalation: false
@@ -60,21 +56,4 @@ rbac:
     enabled: false
     name: toolhive-oracle-scc
 
-# Dependency toggles - Toolhive dependencies for OpenShift
-# Note: This chart is designed for OpenShift and requires the anyuid SCC
-# to be applied to the toolhive-operator service account for proper operation
-toolhiveOperatorCrds:
-  enabled: true
-toolhiveOperator:
-  enabled: true
-  # OpenShift security context overrides - requires anyuid SCC
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 1000  # Will be overridden by anyuid SCC
-    capabilities:
-      drop:
-      - ALL
-  podSecurityContext:
-    runAsNonRoot: true
+# Note: Toolhive operator dependencies are now managed by the parent mcp-servers chart
