@@ -1,9 +1,9 @@
 # Toolhive operator configuration
 toolhive:
   crds:
-    enabled: false  # CRDs already exist
+    enabled: true   # Install CRDs as part of this chart
   operator:
-    enabled: false  # Operator already installed in Step 3
+    enabled: true   # Deploy operator as part of this chart
 
 # Toolhive operator subchart configuration
 toolhive-operator:
@@ -30,43 +30,38 @@ toolhive-operator:
 # MCP servers configuration
 mcp-servers:
   mcp-weather:
-    deploy: false
-    imageRepository: quay.io/ecosystem-appeng/mcp-weather
-    imageTag: "0.1.0"
-    uri: http://mcp-weather:8000/sse
     # MCPServer configuration for Toolhive
     mcpserver:
       enabled: true
       port: 8080
       transport: stdio
+      image: "quay.io/ecosystem-appeng/mcp-weather:0.1.0"
       permissionProfile:
         name: network
         type: builtin
       env:
         TAVILY_API_KEY: ""
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
   
   oracle-sqlcl:
-    deploy: false
-    imageRepository: quay.io/ecosystem-appeng/oracle-sqlcl
-    imageTag: "0.1.0"
-    uri: http://oracle-sqlcl-mcp:8080/sse
     # MCPServer configuration for Toolhive
+    # NOTE: Requires Oracle database and oracle23ai secret to exist
     mcpserver:
-      enabled: true
+      enabled: false  # Disabled by default - enable when Oracle DB is available
       port: 8080
       transport: stdio
+      image: "quay.io/ecosystem-appeng/oracle-sqlcl:0.1.0"
       permissionProfile:
         name: network
         type: builtin
@@ -85,23 +80,23 @@ mcp-servers:
         ORACLE_CONNECTION_STRING:
           name: oracle23ai
           key: jdbc-uri
-    resources:
-      requests:
-        cpu: 500m
-        memory: 512Mi
-      limits:
-        cpu: 1000m
-        memory: 1Gi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
-    podSecurityContext:
-      fsGroup: 0
-      fsGroupChangePolicy: OnRootMismatch
-      seccompProfile:
-        type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      podSecurityContext:
+        fsGroup: 0
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
     persistence:
       enabled: true
       claimName: oracle-sqlcl-data

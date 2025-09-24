@@ -14,10 +14,33 @@ The mcp-servers chart creates:
 ### Key Components
 
 1. **Toolhive Operator**: Manages the lifecycle of MCP servers
-2. **MCPServer CRDs**: Define MCP server specifications declaratively  
+2. **MCPServer CRDs**: Define MCP server specifications declaratively
 3. **Oracle SQLcl MCP**: Database interaction capabilities using Oracle's SQLcl
 4. **Weather MCP**: External weather API integration
 5. **Secure Secret Management**: Credentials sourced from Kubernetes secrets
+
+### ToolHive-Only Deployment Architecture
+
+This chart exclusively uses ToolHive MCPServer custom resources for all MCP server deployments, providing a unified, operator-managed approach:
+
+#### ToolHive-Managed Servers (All servers via MCPServer CRDs)
+- **Oracle SQLcl MCP**: Uses `transport: stdio`
+  - Deployed as MCPServer CRD managed by Toolhive operator
+  - SQLcl's native MCP mode communicates via stdio
+  - Toolhive automatically proxies stdio to HTTP/SSE for web access
+  - Accessible at: `http://mcp-oracle-sqlcl-proxy:8080/sse`
+
+- **Weather MCP**: Uses `transport: sse`
+  - Deployed as MCPServer CRD managed by Toolhive operator
+  - Native SSE transport with Toolhive proxy management
+  - Consistent networking and service discovery
+  - Accessible at: `http://mcp-mcp-weather-proxy:8000/sse`
+
+**Benefits of ToolHive-Only Approach:**
+- Unified deployment model for all MCP servers
+- Consistent service naming and networking
+- Automatic proxy and service account management
+- Simplified configuration and maintenance
 ## Included Files
 
 | File | Description |
@@ -99,23 +122,15 @@ oc get secret oracle23ai
 # Install Toolhive operator with 1Gi memory (default 128Mi is insufficient)
 helm install toolhive-operator toolhive/toolhive-operator --version 0.2.6 --namespace <your-namespace> --set operator.resources.requests.memory=1Gi --set operator.resources.limits.memory=1Gi
 
-# Grant required SecurityContextConstraints for Toolhive operator
-oc adm policy add-scc-to-user anyuid -z toolhive-operator --namespace <your-namespace>
-
 # Verify Toolhive operator is running
 oc get pods -l app.kubernetes.io/name=toolhive-operator --namespace <your-namespace>
 ```
 
-**Step 4: Enable MCP Servers and Grant Required Permissions**
+**Step 4: Install MCP Servers**
 ```bash
 # Install MCP servers (operator already installed in Step 3)
-# PVC will be created automatically by the helm chart
+# PVC and SCC permissions will be created automatically by the helm chart
 helm install mcp-servers ./helm --namespace <your-namespace>
-
-# Grant SecurityContextConstraints for MCP server service accounts
-# IMPORTANT: These are required for MCP server pods to start
-oc adm policy add-scc-to-user anyuid -z mcp-weather-proxy-runner --namespace <your-namespace>
-oc adm policy add-scc-to-user anyuid -z oracle-sqlcl-proxy-runner --namespace <your-namespace>
 
 # Verify MCP servers are running
 oc get pods -l toolhive=true --namespace <your-namespace>
@@ -125,20 +140,38 @@ oc get mcpservers --namespace <your-namespace>
 ### Quick Start
 
 ```bash
-# Install with default configuration (MCPServer resources enabled)
-# Note: PVCs are created automatically by the helm chart
-helm install mcp-servers ./helm --namespace <your-namespace>
+# Install everything in one command (includes ToolHive CRDs, operator, and MCP servers)
+helm install mcp-servers ./helm --namespace <your-namespace> --create-namespace
+
+# Check deployment status
+kubectl get mcpservers -n <your-namespace>
+kubectl get pods -l app.kubernetes.io/name=toolhive-operator -n <your-namespace>
+kubectl get pods -l toolhive=true -n <your-namespace>
 ```
+
+**What gets deployed:**
+- ✅ ToolHive CRDs (MCPServer custom resources)
+- ✅ ToolHive operator (manages MCP server lifecycle)
+- ✅ Weather MCP server (enabled by default)
+- ⏸️ Oracle SQLcl MCP server (disabled - requires Oracle DB)
+- ✅ SCC bindings and security configurations
 
 ### Production Installation with Oracle Database
 
 ```bash
-# Create a custom values file for your configuration
-# See the main repository README.md for configuration examples
-# Update TAVILY_API_KEY if you have one for weather functionality
+# 1. First deploy Oracle database (if needed)
+helm install oracle-db ../oracle23ai/helm --namespace <your-namespace>
 
-# Install with custom configuration (PVCs created automatically)
-helm install mcp-servers ./helm --namespace <your-namespace> -f your-values.yaml
+# 2. Wait for Oracle to be ready
+kubectl wait --for=condition=ready pod/oracle23ai-0 --timeout=600s -n <your-namespace>
+
+# 3. Enable Oracle SQLcl MCP server in values
+# Edit values.yaml to set: mcp-servers.oracle-sqlcl.mcpserver.enabled: true
+
+# 4. Deploy MCP servers with Oracle support
+helm install mcp-servers ./helm --namespace <your-namespace> \
+  --set mcp-servers.oracle-sqlcl.mcpserver.enabled=true \
+  --set mcp-servers.mcp-weather.mcpserver.env.TAVILY_API_KEY="your-api-key"
 ```
 
 ## Configuration
@@ -153,15 +186,44 @@ helm install mcp-servers ./helm --namespace <your-namespace> -f your-values.yaml
 
 ### MCP Servers Configuration
 
-**Configuration examples are provided in the main repository README.md**.
+This chart uses a **dynamic, configuration-driven approach** where all MCP servers are automatically generated from the `mcp-servers` section in values.yaml.
 
-**Key Configuration Notes:**
-- **Weather MCP**: Uses `imageTag: "0.1.0"` (latest tag not available)
-- **Oracle SQLcl MCP**: Requires Oracle database secret (automatically created by Oracle chart)
-- **API Keys**: Update `TAVILY_API_KEY` in your values.yaml file if you have one
-- **Secrets**: Oracle credentials are automatically sourced from the `oracle23ai` secret
+#### Key Innovation: Zero-Template Changes Required
 
-**To customize**: Create your own values.yaml file and refer to the configuration examples in the main README.md.
+Adding new MCP servers requires **only configuration changes** - no template modifications needed:
+
+- **Dynamic Resource Generation**: Templates automatically iterate over your configuration
+- **Unified Structure**: All servers use the same `mcpserver` configuration pattern
+- **Automatic Features**: SCC bindings, monitoring commands, and documentation are auto-generated
+
+#### Configuration Reference
+
+**See `helm/values.yaml` for complete configuration examples** including:
+
+- **Weather MCP Server**: SSE transport with API key configuration
+- **Oracle SQLcl MCP Server**: stdio transport with persistence and secrets
+- **Toolhive Integration**: Permission profiles and resource management
+
+**Core Configuration Pattern:**
+```yaml
+mcp-servers:
+  <server-name>:
+    mcpserver:
+      enabled: true
+      image: "registry/image:tag"
+      port: 8080
+      transport: "stdio|sse"
+      # ... see values.yaml for complete examples
+```
+
+#### Supported Features
+
+- **Transport Protocols**: Both `stdio` and `sse` via ToolHive proxy
+- **Secret Management**: Secure credential injection via `envSecrets`
+- **Persistent Storage**: Optional volumes and PVCs
+- **Security Contexts**: Restricted permissions and SCC bindings
+- **Resource Limits**: CPU and memory management
+- **Auto-Discovery**: Dynamic service naming and health endpoints
 
 ## Security
 ### Credential Management
@@ -208,10 +270,9 @@ MCP servers expose health endpoints through Toolhive proxy:
 
 1. **Pod Restarts**: Check health probe timing for database connections
 2. **Secret Not Found**: Ensure Oracle secret exists before installing
-3. **Toolhive Operator Not Starting**: Grant anyuid SCC to toolhive-operator service account
-4. **Toolhive Operator OOMKilled**: Increase memory limits to 1Gi (default 128Mi is insufficient)
-5. **MCP Server Pods Not Starting**: Grant anyuid SCC to MCP server proxy-runner service accounts
-6. **Permission Denied**: Verify SCC permissions for service accounts
+3. **Toolhive Operator OOMKilled**: Increase memory limits to 1Gi (default 128Mi is insufficient)
+4. **MCP Server Pods Not Starting**: Verify SCC permissions were automatically created by checking ClusterRoleBindings
+5. **Permission Denied**: Check that SCC bindings exist with `oc get clusterrolebindings | grep mcp-servers`
 7. **Oracle Platform Compatibility**: Oracle :latest may have ORA-27350 platform issues - use 23.5.0.0 instead
 8. **Oracle Security Context Issues**: Oracle requires SETUID/SETGID capabilities in SCC for proper operation
 9. **Storage Issues**: Check PVC creation and storage class availability
@@ -229,9 +290,11 @@ oc get mcpservers -o yaml
 # Verify secrets
 oc get secret oracle23ai -o jsonpath='{.data}' | jq 'keys'
 
-# Check SCC permissions for service accounts
-oc get scc anyuid -o jsonpath='{.users}'
-oc describe scc anyuid | grep -A 10 Users
+# Check SCC permissions for service accounts (automated via ClusterRoleBindings)
+oc get clusterrolebindings | grep mcp-servers
+oc describe clusterrolebinding mcp-servers-toolhive-operator-anyuid
+oc describe clusterrolebinding mcp-servers-mcp-weather-proxy-runner-anyuid
+oc describe clusterrolebinding mcp-servers-oracle-sqlcl-proxy-runner-anyuid
 
 # Verify MCP server deployments and pods
 oc get deployments -l toolhive=true
@@ -245,22 +308,45 @@ oc get scc oracle23ai-scc -o jsonpath='{.allowedCapabilities}'
 oc describe scc oracle23ai-scc | grep -A 5 "Required Drop Capabilities"
 ```
 
-## Migration from Legacy Deployment
+## Adding New MCP Servers
 
-If migrating from standalone oracle-sqlcl deployment:
+**The power of our optimized architecture**: Adding new MCP servers is entirely configuration-driven.
 
-1. Uninstall old oracle-sqlcl chart
-2. Install this unified mcp-servers chart
-3. Configure `oracle-sqlcl.mcpserver.enabled: true`
-4. Update secret references
+### Process (3 Simple Steps)
+
+1. **Add configuration** to `values.yaml` (copy pattern from existing servers)
+2. **Deploy**: `helm upgrade mcp-servers ./helm --namespace <your-namespace>`
+3. **Done!** All resources auto-generated
+
+### What Happens Automatically
+
+- ✅ **MCPServer CRD**: Created with your configuration
+- ✅ **SCC Bindings**: Service account permissions auto-generated
+- ✅ **Storage**: PVCs created if persistence enabled
+- ✅ **Monitoring**: Health endpoints and log commands added to NOTES
+- ✅ **Security**: Restricted contexts and proper labeling applied
+
+**Zero template changes required** - this is the result of our dynamic template optimization.
 
 ## Contributing
 
-1. Follow existing patterns for new MCP servers
-2. Use MCPServer CRDs instead of direct Deployments  
-3. Implement secure credential management
-4. Add appropriate resource limits and security contexts
-5. Update this README with new server documentation
+1. **Follow ToolHive-only approach**: All servers use MCPServer CRDs exclusively
+2. **Use dynamic template patterns**: Templates automatically iterate over `mcp-servers` configuration
+3. **Consolidate configuration**: All server settings go under `mcpserver` block
+4. **Implement secure credential management**: Use `envSecrets` for sensitive data
+5. **Add appropriate resource limits and security contexts**: Include in `mcpserver` configuration
+6. **Update this README**: Document new server examples and configuration
+7. **Test thoroughly**: Validate with `helm template` and `helm lint`
+
+### Chart Architecture Principles
+
+This chart follows these key principles established through optimization:
+
+- **Dynamic Generation**: Templates iterate over configuration rather than hardcoding server lists
+- **Unified Configuration**: All server settings consolidated under `mcpserver` blocks
+- **ToolHive-Only**: Exclusively uses MCPServer CRDs for consistent deployment patterns
+- **Security by Default**: Restricted security contexts and SCC permissions
+- **Maintainability**: Adding new servers requires only configuration changes, no template updates
 
 ## Support
 

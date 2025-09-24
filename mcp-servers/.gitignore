@@ -1,0 +1,52 @@
+# Security - API Keys and Secrets
+*.key
+*.secret
+*secrets*
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.temp
+*_temp
+*_tmp
+/tmp/
+
+# Log files
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Helm specific
+charts/*.tgz
+helm/charts/
+helm/Chart.lock
+
+# Kubernetes
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# Development/Testing
+values-dev.yaml
+values-test.yaml
+values-local.yaml
+*-override.yaml
+
+# MCP Inspector logs and configs
+/tmp/mcp_*
+mcp_inspector*.log
