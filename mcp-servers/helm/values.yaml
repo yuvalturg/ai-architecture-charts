@@ -33,8 +33,8 @@ mcp-servers:
     # MCPServer configuration for Toolhive
     mcpserver:
       enabled: true
-      port: 8080
-      transport: stdio
+      port: 8000
+      transport: sse
       image: "quay.io/ecosystem-appeng/mcp-weather:0.1.0"
       permissionProfile:
         name: network
