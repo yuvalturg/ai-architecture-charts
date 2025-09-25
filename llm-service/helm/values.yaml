@@ -4,7 +4,7 @@ rawDeploymentMode: true
 # Device-specific configurations for tolerations and accelerators
 deviceConfigs:
   gpu:
-    image: quay.io/ecosystem-appeng/vllm:openai-v0.9.2
+    image: quay.io/ecosystem-appeng/vllm:openai-v0.10.1
     tolerations:
       - key: nvidia.com/gpu
         effect: NoSchedule
