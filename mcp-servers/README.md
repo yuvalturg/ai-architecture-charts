@@ -102,7 +102,7 @@ helm repo add toolhive https://stacklok.github.io/toolhive
 helm repo update
 
 # Install Toolhive CRDs (REQUIRED FIRST for MCP servers)
-helm install toolhive-crds toolhive/toolhive-operator-crds --version 0.0.18
+helm install toolhive-crds toolhive/toolhive-operator-crds --version 0.0.30
 ```
 
 **Step 2: Deploy External Dependencies (Oracle SQLcl MCP only)**
@@ -120,7 +120,7 @@ oc get secret oracle23ai
 **Step 3: Install Toolhive Operator**
 ```bash
 # Install Toolhive operator with 1Gi memory (default 128Mi is insufficient)
-helm install toolhive-operator toolhive/toolhive-operator --version 0.2.6 --namespace <your-namespace> --set operator.resources.requests.memory=1Gi --set operator.resources.limits.memory=1Gi
+helm install toolhive-operator toolhive/toolhive-operator --version 0.2.19 --namespace <your-namespace> --set operator.resources.requests.memory=1Gi --set operator.resources.limits.memory=1Gi
 
 # Verify Toolhive operator is running
 oc get pods -l app.kubernetes.io/name=toolhive-operator --namespace <your-namespace>

@@ -105,7 +105,7 @@ MCP server that exposes Oracle SQLcl capabilities to AI agents via Toolhive, ena
 
 **Key Features:**
 - Execute SQL/PLSQL against Oracle databases via Model Context Protocol
-- Integrates with Toolhive Operator (CRDs and operator managed as chart dependencies)
+- Integrates with Toolhive Operator v0.2.19 (CRDs v0.0.30 and operator managed as chart dependencies)
 - Orale connection managed via Kubernetes secrets and configurable service
 
 ## Quick Start
@@ -433,6 +433,98 @@ helm list -n my-ai-app
 ```
 
 This approach allows you to compose comprehensive AI applications by combining these foundational charts with your own application-specific components while minimizing configuration duplication.
+
+## Testing MCP Servers
+
+### Using MCP Inspector
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a debugging and testing tool for Model Context Protocol servers. Use it to test MCP servers deployed in OpenShift.
+
+#### Prerequisites
+
+Install MCP Inspector on your local machine:
+
+```bash
+npm install -g @modelcontextprotocol/inspector
+```
+
+#### Testing MCP Servers in OpenShift
+
+1. **Get MCP Server Details**:
+   ```bash
+   # List MCP servers
+   oc get mcpserver
+
+   # Get server URL and transport type
+   oc describe mcpserver <server-name>
+
+   # Check route configuration
+   oc get route <mcp-server-route>
+   ```
+
+2. **Start MCP Inspector**:
+   ```bash
+   # For SSE transport (most common)
+   mcp-inspector --transport sse --server-url http://<mcp-server-route>/sse
+
+   # For HTTP transport
+   mcp-inspector --transport http --server-url http://<mcp-server-route>
+   ```
+
+3. **Test Connection**:
+   - Open the provided URL in your browser (e.g., `http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=...`)
+   - Use the web interface to:
+     - Connect to the MCP server
+     - View available tools and resources
+     - Execute tool calls with test parameters
+     - Monitor MCP protocol messages
+
+#### Example: Testing Weather MCP Server
+
+```bash
+# Connect to weather MCP server
+mcp-inspector --transport sse --server-url http://mcp-mcp-weather-proxy-<namespace>.apps.<cluster-domain>/sse
+
+# In the web interface:
+# 1. Connect to the server
+# 2. Find the weather tool (e.g., "get_weather")
+# 3. Test with coordinates:
+#    - New York: lat=40.7128, lon=-74.0060
+#    - Los Angeles: lat=34.0522, lon=-118.2437
+```
+
+#### Troubleshooting MCP Connections
+
+**Common Issues:**
+
+1. **503 Service Unavailable**
+   - Check if using HTTP vs HTTPS correctly
+   - Verify route has proper TLS configuration: `oc get route <name> -o yaml`
+
+2. **404 Not Found**
+   - Ensure correct endpoint path (usually `/sse` for SSE transport)
+   - Test endpoint manually: `curl http://<server-url>/sse -H "Accept: text/event-stream"`
+
+3. **Connection Timeout**
+   - Check if MCP server pods are running: `oc get pods -l app=<server-name>`
+   - Review server logs: `oc logs <pod-name>`
+
+4. **Transport Type Mismatch**
+   - Match transport type with server configuration
+   - SSE transport requires `/sse` endpoint
+   - HTTP transport uses root path `/`
+
+**Debugging Commands:**
+```bash
+# Check server status
+oc get mcpserver <name> -o yaml
+
+# View server logs
+oc logs -l toolhive-name=<server-name>
+
+# Test endpoint manually
+curl -v http://<server-route>/sse -H "Accept: text/event-stream" --max-time 5
+```
 
 ## Contributing
 
