@@ -34,6 +34,7 @@ mcp-servers:
     mcpserver:
       enabled: true
       port: 8000
+      targetPort: 8000
       transport: sse
       image: "quay.io/ecosystem-appeng/mcp-weather:0.1.0"
       permissionProfile:
@@ -58,7 +59,7 @@ mcp-servers:
     # MCPServer configuration for Toolhive
     # NOTE: Requires Oracle database and oracle23ai secret to exist
     mcpserver:
-      enabled: false  # Disabled by default - enable when Oracle DB is available
+      enabled: true  # Oracle DB is available
       port: 8080
       transport: stdio
       image: "quay.io/ecosystem-appeng/oracle-sqlcl:0.1.0"
@@ -99,14 +100,11 @@ mcp-servers:
           type: RuntimeDefault
     persistence:
       enabled: true
-      claimName: oracle-sqlcl-data
+      volumeName: sqlcl-data
       accessMode: ReadWriteOnce
       size: 5Gi
       storageClassName: gp3-csi
-    volumes:
-      - name: sqlcl-data
-        persistentVolumeClaim:
-          claimName: oracle-sqlcl-data
+    # volumes section removed - ephemeral volume automatically created by toolhive
     volumeMounts:
       - name: sqlcl-data
         mountPath: /sqlcl-home

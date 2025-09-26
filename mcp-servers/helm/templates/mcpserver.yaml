@@ -23,8 +23,25 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $server.volumes }}
       volumes:
+      {{- if and $server.persistence $server.persistence.enabled }}
+      - name: {{ $server.persistence.volumeName | default "data" }}
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              labels:
+                {{- include "mcp-servers.labels" $serverDict | nindent 16 }}
+            spec:
+              accessModes:
+                - {{ $server.persistence.accessMode }}
+              resources:
+                requests:
+                  storage: {{ $server.persistence.size }}
+              {{- if $server.persistence.storageClassName }}
+              storageClassName: {{ $server.persistence.storageClassName }}
+              {{- end }}
+      {{- end }}
+      {{- with $server.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
@@ -64,6 +81,9 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
   port: {{ $server.mcpserver.port | default 8080 }}
+  {{- if $server.mcpserver.targetPort }}
+  targetPort: {{ $server.mcpserver.targetPort }}
+  {{- end }}
   transport: {{ $server.mcpserver.transport | default "stdio" }}
 {{- end }}
 {{- end }}

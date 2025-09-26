@@ -8,7 +8,7 @@ SCC bindings for service accounts - iterating over mcp-servers for better mainta
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Release.Name }}-toolhive-operator-anyuid
+  name: {{ .Release.Namespace }}-toolhive-operator-anyuid
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -31,7 +31,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ $root.Release.Name }}-{{ $key }}-proxy-runner-anyuid
+  name: {{ $root.Release.Namespace }}-{{ $key }}-proxy-runner-anyuid
   labels:
     {{- include "mcp-servers.labels" $serverDict | nindent 4 }}
 subjects:
