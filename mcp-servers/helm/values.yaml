@@ -1,6 +1,8 @@
 # Toolhive operator subchart configuration
 toolhive-operator:
   operator:
+    rbac:
+      scope: namespace
     resources:
       requests:
         cpu: 100m
