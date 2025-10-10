@@ -3,6 +3,7 @@ toolhive-operator:
   operator:
     rbac:
       scope: namespace
+      allowedNamespaces: []  # Will be appended with .Release.Namespace at install time
     resources:
       requests:
         cpu: 100m
