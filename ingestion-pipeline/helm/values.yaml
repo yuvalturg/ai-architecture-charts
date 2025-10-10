@@ -1,4 +1,4 @@
-# Default values for llama-stack.
+# Default values for ingestion-pipeline.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -52,34 +52,80 @@ tolerations: []
 affinity: {}
 
 defaultPipeline:
-  enabled: true
-  # options are [S3, GITHUB, URL]
-  source: S3
-  # embedding model to use for creating embeddings
+  enabled: false
+  # Source options: [S3, URL]
+  source: "S3"
+  # Embedding model for creating embeddings
   embedding_model: "all-MiniLM-L6-v2"
-  # name of the vector db with version, pipeline will be created with pipeline_red_hat_openshift
-  name: "demo-rag-vector-db"
-  # version of the knowledgebase
+  # Name of the vector database
+  name: "zippity-zoo-vector-db"
+  # Version of the knowledge base
   version: "1.0"
-  vector_store_name: "demo-rag-vector-db-v1-0-s3"
+  # Name of the vector database
+  vector_store_name: "zippity-zoo-vector-db"
 
+  # S3 configuration for document storage
   S3:
-    access_key_id: minio_rag_user
-    secret_access_key: minio_rag_password
-    bucket_name: documents
-    endpoint_url: http://minio:9000
-    region: us-east-1
+    access_key_id: "minio_rag_user"
+    secret_access_key: "minio_rag_password"
+    bucket_name: "documents"
+    endpoint_url: "http://minio:9000"
+    region: "us-east-1"
 
-  GITHUB:
-    url: https://github.com/rh-ai-quickstart/RAG.git
-    path: docs
-    token: auth_token
-    branch: main
 
-  URL:
-    urls:
-      - "https://arxiv.org/pdf/2408.09869"
-      - "https://github.com/docling-project/docling/blob/main/tests/data/pdf/2206.01062.pdf"
+# Multiple pipeline configurations
+pipelines:
+  # Default S3-based pipeline
+  default-s3-pipeline:
+    enabled: false
+    # pipeline type - options are [S3, GITHUB, URL]
+    source: S3
+    # embedding model to use for creating embeddings
+    embedding_model: "all-MiniLM-L6-v2"
+    # name of the vector db with version, pipeline will be created with pipeline_red_hat_openshift
+    name: "default-s3-pipeline"
+    # version of the knowledgebase
+    version: "1.0"
+    vector_store_name: "demo-rag-vector-db-v1-0-s3"
+
+    # Source configuration
+    S3:
+      access_key_id: minio_rag_user
+      secret_access_key: minio_rag_password
+      bucket_name: documents
+      endpoint_url: http://minio:9000
+      region: us-east-1
+
+  # GitHub-based pipeline
+  github-docs-pipeline:
+    enabled: false
+    source: GITHUB
+    embedding_model: "all-MiniLM-L6-v2"
+    name: "github-docs-vector-db"
+    version: "1.0"
+    vector_store_name: "github-docs-vector-db-v1-0-github"
+
+    GITHUB:
+      url: https://github.com/rh-ai-quickstart/RAG.git
+      path: docs
+      token: auth_token
+      branch: main
+
+  # URL-based pipeline for web scraping
+  url-content-pipeline:
+    enabled: false
+    source: URL
+    embedding_model: "all-MiniLM-L6-v2"
+    name: "url-content-vector-db"
+    version: "1.0"
+    vector_store_name: "url-content-vector-db-v1-0-url"
+
+    URL:
+      urls:
+        - "https://arxiv.org/pdf/2408.09869"
+        - "https://raw.githubusercontent.com/docling-project/docling/main/tests/data/pdf/2305.03393v1-pg9.pdf"
+
+
 
 authUser: ""
 

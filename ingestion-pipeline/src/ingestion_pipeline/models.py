@@ -11,7 +11,14 @@ class BaseSourceModel(BaseModel):
     vector_store_name: str
 
     def pipeline_name(self) -> str:
-        return self.vector_store_name
+        if self.vector_store_name and self.vector_store_name.strip():
+            return self.vector_store_name
+        else:
+            # Create name from {name}-{version} and replace '_' and '.' with '-'
+            name = self.name.replace('_', '-').replace('.', '-').strip()
+            version = self.version.replace('_', '-').replace('.', '-').strip()
+            self.vector_store_name = f"{name}-{version}"
+            return self.vector_store_name
 
 
 class GitHubSource(BaseSourceModel):

@@ -1,4 +1,4 @@
-{{- if .Values.defaultPipeline.enabled }}
+{{- if and .Values.defaultPipeline (eq .Values.defaultPipeline.enabled true) }}
 
 {{- $pipeline := .Values.defaultPipeline }}
 {{- $source := $pipeline.source }}
