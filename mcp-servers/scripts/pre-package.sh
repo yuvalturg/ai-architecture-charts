@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 # Pre-package script for mcp-servers helm chart
 # This script patches the toolhive-operator subchart before packaging
@@ -23,6 +23,14 @@ if [ -n "$TOOLHIVE_TGZ" ]; then
   # Convert ClusterRole to Role in role.yaml
   sed -i 's/kind: ClusterRole/kind: Role/' \
     "$TEMP_DIR/toolhive-operator/templates/clusterrole/role.yaml"
+
+  # Append .Release.Namespace to allowedNamespaces in deployment.yaml
+  sed -i 's/value: "{{ \.Values\.operator\.rbac\.allowedNamespaces | join "," }}"/value: "{{ append .Values.operator.rbac.allowedNamespaces .Release.Namespace | uniq | join "," }}"/' \
+    "$TEMP_DIR/toolhive-operator/templates/deployment.yaml"
+
+  # Append .Release.Namespace to allowedNamespaces in rolebinding.yaml
+  sed -i 's/{{- range \.Values\.operator\.rbac\.allowedNamespaces }}/{{- range append .Values.operator.rbac.allowedNamespaces .Release.Namespace | uniq }}/' \
+    "$TEMP_DIR/toolhive-operator/templates/clusterrole/rolebinding.yaml"
 
   # Re-package the modified chart
   rm "$TOOLHIVE_TGZ"
