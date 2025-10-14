@@ -22,6 +22,11 @@ spec:
       initContainers:
         - name: wait-for-pipeline
           image: "image-registry.openshift-image-registry.svc:5000/openshift/tools:latest"
+           {{- if .Values.authUser }}
+          env:
+            - name: LLAMA_STACK_AUTH_USER
+              value: {{ .Values.authUser }}
+          {{- end }}
           command:
             - /bin/bash
             - -c
