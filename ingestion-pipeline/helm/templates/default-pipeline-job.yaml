@@ -34,6 +34,19 @@ spec:
                 sleep 10
               done
               echo "Ingestion pipeline service ready"
+
+              url="http://llamastack:8321/v1/models"
+              if [ ! -z ${LLAMA_STACK_AUTH_USER} ]; then
+                headers="-H \"X-Forwarded-User: ${LLAMA_STACK_AUTH_USER}\" -H \"Authorization: Bearer \$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)\""
+              fi
+              echo "Waiting for $url..."
+              command="curl -ksf "$url" $headers"
+              echo $command
+              until $(command); do
+                echo "Still waiting for $url ..."
+                sleep 10
+              done
+              echo "Llama Stack server is running"
       containers:
         - name: create-ingestion-pipeline
           image: "image-registry.openshift-image-registry.svc:5000/openshift/tools:latest"
