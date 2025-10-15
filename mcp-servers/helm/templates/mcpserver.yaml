@@ -1,7 +1,15 @@
 {{- $root := . }}
+{{- $canDeploy := include "mcp-servers.canDeployMCPServer" . }}
 {{- $servers := include "mcp-servers.mergeMcpServers" . | fromJson }}
 {{- range $key, $server := $servers }}
-{{- if $server.enabled }}
+{{- $deploymentMode := $server.deploymentMode | default "auto" }}
+{{- $useMCPServer := false }}
+{{- if eq $deploymentMode "mcpserver" }}
+  {{- $useMCPServer = true }}
+{{- else if eq $deploymentMode "auto" }}
+  {{- $useMCPServer = eq $canDeploy "true" }}
+{{- end }}
+{{- if and $server.enabled $useMCPServer }}
 {{- $serverDict := dict "root" $root "key" $key "server" $server }}
 ---
 apiVersion: toolhive.stacklok.dev/v1alpha1
@@ -12,77 +20,56 @@ metadata:
     {{- include "mcp-servers.labels" $serverDict | nindent 4 }}
 spec:
   image: "{{ $server.image }}"
+  transport: {{ $server.transport | default "stdio" }}
+  {{- with $server.port }}
+  port: {{ . }}
+  {{- end }}
+  {{- with $server.targetPort }}
+  targetPort: {{ . }}
+  {{- end }}
+  {{- with $server.permissionProfile }}
   permissionProfile:
-    name: {{ $server.permissionProfile.name | default "network" }}
-    type: {{ $server.permissionProfile.type | default "builtin" }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $server.env }}
+  env:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $server.envSecrets }}
+  secrets:
+    {{- range $envName, $secretRef := . }}
+    - name: {{ $secretRef.name }}
+      key: {{ $secretRef.key }}
+      targetEnvName: {{ $envName }}
+    {{- end }}
+  {{- end }}
+  {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources }}
   podTemplateSpec:
-    metadata: {}
     spec:
-      serviceAccountName: {{ include "mcp-servers.serviceAccountName" $serverDict }}
       {{- with $server.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- $volumes := $server.volumes | default list }}
-      {{- if (and $server.persistence $server.persistence.enabled) }}
-        {{- $volumeClaimTemplate := dict "metadata" (dict "labels" (include "mcp-servers.labels" $serverDict)) "spec" (dict "accessModes" (list $server.persistence.accessMode) "resources" (dict "requests" (dict "storage" $server.persistence.size))) }}
-        {{- if $server.persistence.storageClassName }}
-          {{- $volumeClaimTemplate = set $volumeClaimTemplate.spec "storageClassName" $server.persistence.storageClassName }}
-        {{- end }}
-        {{- $ephemeralVolume := dict "name" ($server.persistence.volumeName | default "data") "ephemeral" (dict "volumeClaimTemplate" $volumeClaimTemplate) }}
-        {{- $volumes = append $volumes $ephemeralVolume }}
-      {{- end }}
-      {{- with $volumes }}
+      {{- with $server.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if or $server.securityContext $server.volumeMounts $server.resources }}
       containers:
       - name: mcp
-        image: "{{ $server.image }}"
-        imagePullPolicy: {{ $server.imagePullPolicy | default "IfNotPresent" }}
-        {{- if or $server.env $server.envSecrets }}
-        env:
-        {{- with $server.env }}
-        {{- range $envKey, $envValue := . }}
-        {{- if ne $envValue nil }}
-        - name: {{ $envKey }}
-          value: {{ $envValue | quote }}
+        {{- with $server.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- end }}
-        {{- end }}
-        {{- with $server.envSecrets }}
-        {{- range $envKey, $secretSpec := . }}
-        - name: {{ $envKey }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ $secretSpec.name }}
-              key: {{ $secretSpec.key }}
-        {{- end }}
-        {{- end }}
-        {{- end }}
-        {{- $volumeMounts := $server.volumeMounts | default list }}
-        {{- if (and $server.persistence $server.persistence.enabled) }}
-          {{- $volumeName := $server.persistence.volumeName | default "data" }}
-          {{- $mountPath := $server.persistence.mountPath | default "/data" }}
-          {{- $persistenceVolumeMount := dict "name" $volumeName "mountPath" $mountPath }}
-          {{- $volumeMounts = append $volumeMounts $persistenceVolumeMount }}
-        {{- end }}
-        {{- with $volumeMounts }}
+        {{- with $server.volumeMounts }}
         volumeMounts:
-          {{- toYaml . | nindent 8 }}
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         {{- with $server.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with $server.securityContext }}
-        securityContext:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-  port: {{ $server.port | default 8080 }}
-  {{- if $server.targetPort }}
-  targetPort: {{ $server.targetPort }}
+      {{- end }}
   {{- end }}
-  transport: {{ $server.transport | default "stdio" }}
 {{- end }}
 {{- end }}
