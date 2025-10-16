@@ -1,57 +1,21 @@
-# Toolhive operator subchart configuration
-toolhive-operator:
-  operator:
-    rbac:
-      scope: namespace
-      allowedNamespaces: []  # Will be appended with .Release.Namespace at install time
-    resources:
-      requests:
-        cpu: 100m
-        memory: 1Gi
-      limits:
-        cpu: 1000m
-        memory: 1Gi
-    # OpenShift security context overrides - requires anyuid SCC
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      runAsNonRoot: true
-      runAsUser: 1000  # Will be overridden by anyuid SCC
-      capabilities:
-        drop:
-        - ALL
-    podSecurityContext:
-      runAsNonRoot: true
-
 # MCP servers configuration
 mcp-servers:
   weather:
-    # Weather MCP Server configuration
     enabled: true
-    port: 8000
-    targetPort: 8000
-    transport: sse
+    # Deployment mode: auto, mcpserver, or deployment
+    # - auto: Use MCPServer if Toolhive is available, otherwise use Deployment (default)
+    # - mcpserver: Always use MCPServer (requires Toolhive)
+    # - deployment: Always use Deployment (ignore Toolhive)
+    deploymentMode: auto
     image: "quay.io/ecosystem-appeng/mcp-weather:0.1.0"
-    permissionProfile:
-      name: network
-      type: builtin
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
+    transport: sse
+    targetPort: 8000
   
   oracle-sqlcl:
     # Oracle SQLcl MCP Server configuration
     # NOTE: Requires Oracle database and oracle23ai secret to exist
     enabled: false  # Oracle DB is available
+    deploymentMode: auto  # auto, mcpserver, or deployment
     port: 8080
     transport: stdio
     image: "quay.io/ecosystem-appeng/oracle-sqlcl:0.1.0"
@@ -90,10 +54,17 @@ mcp-servers:
       fsGroupChangePolicy: OnRootMismatch
       seccompProfile:
         type: RuntimeDefault
-    persistence:
-      enabled: true
-      volumeName: sqlcl-data
-      mountPath: /sqlcl-home
-      accessMode: ReadWriteOnce
-      size: 5Gi
-      storageClassName: gp3-csi
+    volumes:
+      - name: sqlcl-data
+        ephemeral:
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              storageClassName: gp3-csi
+              resources:
+                requests:
+                  storage: 5Gi
+    volumeMounts:
+      - name: sqlcl-data
+        mountPath: /sqlcl-home
