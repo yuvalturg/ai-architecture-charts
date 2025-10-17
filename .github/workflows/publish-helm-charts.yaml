@@ -189,20 +189,23 @@ jobs:
               new_version="${major}.${minor}.${new_patch}"
 
               echo "  Auto-incremented to: $new_version"
+
+              # Update both version and appVersion to be the same
+              sed -i "s/^version: .*/version: $new_version/" "$CHART_PATH"
+              sed -i "s/^appVersion: .*/appVersion: \"$new_version\"/" "$CHART_PATH"
+
+              # Commit this component's version update
+              git add "$CHART_PATH"
+              git commit -m "chore(${component}): bump version to ${new_version}"
+
+              echo "  Created version bump commit"
             else
               echo "  Tag $tag_name does not exist, using current version"
               new_version="$current_version"
+              echo "  No version change needed, tag will be created on current commit"
             fi
 
-            # Update both version and appVersion to be the same
-            sed -i "s/^version: .*/version: $new_version/" "$CHART_PATH"
-            sed -i "s/^appVersion: .*/appVersion: \"$new_version\"/" "$CHART_PATH"
-
-            # Commit this component's version update
-            git add "$CHART_PATH"
-            git commit -m "chore(${component}): bump version to ${new_version}"
-
-            # Get the commit SHA for this component
+            # Get the commit SHA for this component (current HEAD)
             COMMIT_SHA=$(git rev-parse HEAD)
 
             # Add to JSON map
@@ -215,7 +218,7 @@ jobs:
             Version: ${new_version}
             Commit: $(git rev-parse --short HEAD)"
 
-            echo "Created commit and tag: $tag_name (SHA: $COMMIT_SHA)"
+            echo "Created tag: $tag_name (SHA: $COMMIT_SHA)"
           done
 
           # Push all commits and tags together
