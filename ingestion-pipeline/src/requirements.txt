@@ -10,3 +10,4 @@ requests
 docling
 docling-core
 pytesseract
+tesserocr
