@@ -17,7 +17,7 @@ mcp-servers:
     # Oracle SQLcl MCP Server configuration
     # NOTE: Requires Oracle database and oracle23ai secret to exist
     enabled: false  # Oracle DB is available
-    deploymentMode: auto  # auto, mcpserver, or deployment
+    deploymentMode: mcpserver  # auto, mcpserver, or deployment
     port: 8080
     transport: stdio
     image:
