@@ -38,7 +38,7 @@ spec:
       {{- end }}
       containers:
       - name: {{ $key }}
-        image: "{{ $server.image }}"
+        image: "{{ $server.image.repository }}:{{ $server.image.tag | default $root.Chart.Version }}"
         imagePullPolicy: {{ $server.imagePullPolicy | default "IfNotPresent" }}
         {{- if $server.port }}
         ports:

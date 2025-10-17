@@ -7,7 +7,9 @@ mcp-servers:
     # - mcpserver: Always use MCPServer (requires Toolhive)
     # - deployment: Always use Deployment (ignore Toolhive)
     deploymentMode: auto
-    image: "quay.io/ecosystem-appeng/mcp-weather:0.1.0"
+    image:
+      repository: quay.io/rh-ai-quickstart/mcp-weather
+      tag: ""  # Defaults to .Chart.Version
     transport: sse
     targetPort: 8000
   
@@ -18,7 +20,9 @@ mcp-servers:
     deploymentMode: auto  # auto, mcpserver, or deployment
     port: 8080
     transport: stdio
-    image: "quay.io/ecosystem-appeng/oracle-sqlcl:0.1.0"
+    image:
+      repository: quay.io/rh-ai-quickstart/oracle-sqlcl
+      tag: ""  # Defaults to .Chart.Version
     permissionProfile:
       name: network
       type: builtin
