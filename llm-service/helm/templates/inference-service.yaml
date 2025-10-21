@@ -31,7 +31,7 @@ spec:
       name: ""
       {{- if hasKey $model "resources" }}
       resources:
-        {{- if or (eq $modelDevice "gpu") (eq $modelDevice "hpu") }}
+        {{- if or (eq $modelDevice "gpu") (eq $modelDevice "hpu") (eq $modelDevice "gpu-amd") }}
           {{- $acceleratorType := $deviceConfig.acceleratorType }}
           {{- $acceleratorCount := $model.accelerators | default "1" }}
           {{- $customResources := $model.resources | deepCopy }}
@@ -47,7 +47,7 @@ spec:
         {{- else }}
           {{- toYaml $model.resources | nindent 8 }}
         {{- end }}
-      {{- else if or (eq $modelDevice "gpu") (eq $modelDevice "hpu") }}
+      {{- else if or (eq $modelDevice "gpu") (eq $modelDevice "hpu") (eq $modelDevice "gpu-amd") }}
       resources:
         {{- $acceleratorType := $deviceConfig.acceleratorType }}
         {{- $acceleratorCount := $model.accelerators | default "1" }}
