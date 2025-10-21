@@ -16,7 +16,7 @@ The llm-service chart creates:
 
 - OpenShift cluster with OpenShift AI/KServe installed
 - Helm 3.x
-- GPU or HPU (Intel Gaudi) nodes (recommended for optimal performance)
+- GPU (NVIDIA/AMD) or HPU (Intel Gaudi) nodes (recommended for optimal performance)
 - HuggingFace account and token for model access
 - Sufficient storage for model downloads
 
@@ -54,6 +54,14 @@ helm install llm-service ./helm \
   --set models.llama-3-2-3b-instruct.enabled=true
 ```
 
+### Installation with AMD GPU Support
+
+```bash
+helm install llm-service ./helm \
+  --set device=gpu-amd \
+  --set models.llama-3-2-3b-instruct.enabled=true
+```
+
 ### Installation with Custom Models
 
 ```bash
@@ -69,9 +77,10 @@ helm install llm-service ./helm \
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `device` | Default device for models that don't specify one (gpu/hpu/cpu) | `gpu` |
+| `device` | Default device for models that don't specify one (gpu/gpu-amd/hpu/cpu) | `gpu` |
 | `rawDeploymentMode` | Use raw deployment instead of KServe | `true` |
-| `deviceConfigs.gpu.image` | GPU container image | `quay.io/ecosystem-appeng/vllm:openai-v0.9.2` |
+| `deviceConfigs.gpu.image` | NVIDIA GPU container image | `quay.io/ecosystem-appeng/vllm:openai-v0.9.2` |
+| `deviceConfigs.gpu-amd.image` | AMD GPU (ROCm) container image | `quay.io/modh/vllm:rhoai-2.25-rocm` |
 | `deviceConfigs.cpu.image` | CPU container image | `quay.io/ecosystem-appeng/vllm:cpu-v0.9.2` |
 | `deviceConfigs.hpu.image` | HPU (Intel Gaudi) container image | `quay.io/modh/vllm:vllm-gaudi-v2-22-on-push-jgj5q-build-container` |
 | `servingRuntime.name` | Name of the serving runtime | `vllm-serving-runtime` |
@@ -95,11 +104,18 @@ models:
     enabled: true
     device: cpu  # Explicitly run on CPU
 
-  # Example: Medium model on GPU
+  # Example: Medium model on NVIDIA GPU
   llama-3-2-3b-instruct-gpu:
     id: meta-llama/Llama-3.2-3B-Instruct
     enabled: true
-    device: gpu  # Run on GPU
+    device: gpu  # Run on NVIDIA GPU
+    accelerators: "1"
+
+  # Example: Same model on AMD GPU
+  llama-3-2-3b-instruct-amd:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: true
+    device: gpu-amd  # Run on AMD GPU with ROCm
     accelerators: "1"
 
   # Example: Same model on HPU with different config
@@ -190,6 +206,15 @@ deviceConfigs:
     recommendedAccelerators:
       - nvidia.com/gpu
     acceleratorType: nvidia.com/gpu
+  gpu-amd:
+    image: quay.io/modh/vllm:rhoai-2.25-rocm
+    tolerations:
+      - key: amd.com/gpu
+        effect: NoSchedule
+        operator: Exists
+    recommendedAccelerators:
+      - amd.com/gpu
+    acceleratorType: amd.com/gpu
   hpu:
     image: quay.io/modh/vllm:vllm-gaudi-v2-22-on-push-jgj5q-build-container
     tolerations:
@@ -408,8 +433,9 @@ oc describe inferenceservice llama-3-2-3b-instruct
 2. **GPU Resource Issues**:
    - Verify GPU nodes are available
    - Check GPU resource limits
-   - Ensure NVIDIA device plugin is running
-   - Validate GPU toleration settings
+   - For NVIDIA GPUs: Ensure NVIDIA device plugin is running
+   - For AMD GPUs: Ensure AMD ROCm device plugin is running
+   - Validate GPU toleration settings (nvidia.com/gpu or amd.com/gpu)
 
 3. **Memory/Storage Issues**:
    - Large models require significant memory
@@ -476,6 +502,7 @@ Set the accelerator count accordingly for multi-device parallelism:
 accelerators: "4"
 ```
 
+
 ### Device Configuration (Tolerations)
 
 Default tolerations are applied based on the selected device via `deviceConfigs`. You can override per model if needed.
@@ -485,6 +512,11 @@ deviceConfigs:
   gpu:
     tolerations:
       - key: nvidia.com/gpu
+        effect: NoSchedule
+        operator: Exists
+  gpu-amd:
+    tolerations:
+      - key: amd.com/gpu
         effect: NoSchedule
         operator: Exists
   hpu:
@@ -500,7 +532,8 @@ Note: Node selectors are not explicitly configurable in this chart; scheduling t
 
 The chart automatically creates device-specific `ServingRuntime` resources based on enabled models:
 
-- `vllm-serving-runtime-gpu` - for GPU models (using `deviceConfigs.gpu.image`)
+- `vllm-serving-runtime-gpu` - for NVIDIA GPU models (using `deviceConfigs.gpu.image`)
+- `vllm-serving-runtime-gpu-amd` - for AMD GPU models (using `deviceConfigs.gpu-amd.image`)
 - `vllm-serving-runtime-hpu` - for HPU models (using `deviceConfigs.hpu.image`)
 - `vllm-serving-runtime-cpu` - for CPU models (using `deviceConfigs.cpu.image`)
 
@@ -518,7 +551,7 @@ models:
     device: cpu
     enabled: true
 
-  # Performance-optimized GPU deployment
+  # Performance-optimized NVIDIA GPU deployment
   llama-3-2-3b-instruct-gpu:
     id: meta-llama/Llama-3.2-3B-Instruct
     device: gpu
@@ -527,6 +560,13 @@ models:
     args:
       - --quantization
       - fp8  # GPU-specific optimization
+
+  # AMD GPU deployment with ROCm
+  llama-3-2-3b-instruct-amd:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    device: gpu-amd
+    enabled: true
+    accelerators: "1"
 
   # HPU deployment with different parallelism
   llama-3-2-3b-instruct-hpu:
