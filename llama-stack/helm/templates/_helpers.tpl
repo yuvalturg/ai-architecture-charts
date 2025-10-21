@@ -71,7 +71,7 @@ Create the name of the service account to use
     {{- if not $model.url }}
       {{- $url := printf "https://%s.%s.svc.cluster.local/v1" $key $root.Release.Namespace }}
       {{- if $root.Values.rawDeploymentMode }}
-        {{- $url = printf "http://%s-predictor.%s.svc.cluster.local:8080/v1" $key $root.Release.Namespace }}
+        {{- $url = printf "http://%s-vllm.%s.svc.cluster.local/v1" $key $root.Release.Namespace }}
       {{- end }}
       {{- $_ := set $merged $key (merge $model (dict "url" $url)) }}
     {{- end }}
