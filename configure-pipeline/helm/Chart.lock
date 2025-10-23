@@ -1,0 +1,6 @@
+dependencies:
+- name: minio
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.5.0
+digest: sha256:f900aaa112256f18d09d5db7a415feab1bc4c4c91d2b4d62047d86e82780b989
+generated: "2025-10-23T12:40:08.136396986-04:00"
