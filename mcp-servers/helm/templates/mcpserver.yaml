@@ -20,6 +20,7 @@ metadata:
     {{- include "mcp-servers.labels" $serverDict | nindent 4 }}
 spec:
   image: "{{ $server.image.repository }}:{{ $server.image.tag | default $root.Chart.Version }}"
+  proxyMode: {{ $server.proxyMode | default "sse" }}
   transport: {{ $server.transport | default "stdio" }}
   {{- with $server.port }}
   port: {{ . }}
