@@ -48,7 +48,7 @@ S3-compatible object storage server for documents, models, and data in AI/ML pip
 - Bucket policies and lifecycle management
 - Sample file upload functionality
 
-#### [Oracle 23ai](./oracle23ai/README.md)
+#### [Oracle 23ai](./oracle-db/README.md)
 Oracle Database Free 23ai with AI Vector features, providing enterprise-grade database capabilities with built-in vector operations for AI applications.
 
 **Key Features:**
@@ -404,10 +404,10 @@ mcp-servers:
           ORACLE_CONN_NAME: "oracle_connection"
         envSecrets:
           ORACLE_PASSWORD:
-            name: oracle23ai
+            name: oracle-db
             key: password
           ORACLE_CONNECTION_STRING:
-            name: oracle23ai
+            name: oracle-db
             key: jdbc-uri
         permissionProfile:
           name: network

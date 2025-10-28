@@ -122,7 +122,7 @@ Components with container images:
 - `ingestion-pipeline`
 - `mcp-weather`
 - `oracle-sqlcl`
-- `oracle23ai-tpcds`
+- `oracle-db-tpcds`
 
 ### Image Tag Synchronization
 
@@ -311,7 +311,7 @@ The chart `version` field determines the Helm package version, while `appVersion
 | llm-service | No | 0.1.0 | N/A |
 | pgvector | No | 0.1.0 | PostgreSQL/pgvector |
 | minio | No | 0.1.0 | MinIO server |
-| oracle23ai | Yes (via build.yaml) | 0.1.0 | Oracle Database |
+| oracle-db | Yes (via build.yaml) | 0.1.0 | Oracle Database |
 | configure-pipeline | No | 0.1.0 | Jupyter |
 
 ## Adding Container Builds to a Component

@@ -106,7 +106,7 @@ oc logs -l app.kubernetes.io/name={{ $key }} -n {{ $.Release.Namespace }}
 {{- if $server.enabled }}
 {{- if and $server.envSecrets $server.envSecrets.ORACLE_PASSWORD }}
 {{ $key | title }} Database Credentials:
-  Credentials are securely sourced from Kubernetes secret: {{ $server.envSecrets.ORACLE_PASSWORD.name | default "oracle23ai" }}
+  Credentials are securely sourced from Kubernetes secret: {{ $server.envSecrets.ORACLE_PASSWORD.name | default "oracle-db" }}
   Ensure this secret exists with required keys
 {{- end }}
 {{- if and $server.env $server.env.TAVILY_API_KEY }}

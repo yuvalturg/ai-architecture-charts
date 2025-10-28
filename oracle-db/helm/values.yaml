@@ -3,7 +3,7 @@
 
 # Global configuration
 global:
-  namespace: oracle23ai
+  namespace: oracle-db
 
 # Oracle Database Configuration
 oracle:
@@ -17,8 +17,8 @@ oracle:
 
   imagePullSecrets: []
 
-  nameOverride: "oracle23ai"
-  fullnameOverride: "oracle23ai"
+  nameOverride: "oracle-db"
+  fullnameOverride: "oracle-db"
 
   serviceAccount:
     create: true
@@ -48,7 +48,7 @@ oracle:
       valueFrom:
         secretKeyRef:
           key: password
-          name: oracle23ai
+          name: oracle-db
     - name: ORACLE_CHARACTERSET
       value: "AL32UTF8"
     - name: ORACLE_EDITION
@@ -100,7 +100,7 @@ oracle:
   secret:
     # Priority order: Environment Variables -> values.yaml -> Auto-generated
     password: ""  # Leave empty to auto-generate secure password
-    host: oracle23ai
+    host: oracle-db
     port: "1521"
     serviceName: "freepdb1"
     sid: "FREE"
@@ -141,10 +141,10 @@ tpcds:
   
   # Database connection (references Oracle service)
   database:
-    host: oracle23ai
+    host: oracle-db
     port: "1521"
     serviceName: "freepdb1"
-    existingSecret: "oracle23ai"
+    existingSecret: "oracle-db"
     passwordKey: "password"
 
   # TPC-DS Configuration

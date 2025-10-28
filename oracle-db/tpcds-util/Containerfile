@@ -2,7 +2,7 @@
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
 # Set labels for better container management
-LABEL name="oracle23ai-tpcds" \
+LABEL name="oracle-db-tpcds" \
       version="1.0.0" \
       description="TPC-DS utility for Oracle 23ai synthetic data generation and database management" \
       maintainer="AI Architecture Team" \

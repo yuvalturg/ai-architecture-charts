@@ -338,16 +338,16 @@ oc describe deployment weather
 oc logs -l app.kubernetes.io/name=weather
 
 # Verify secrets
-oc get secret oracle23ai -o jsonpath='{.data}' | jq 'keys'
+oc get secret oracle-db -o jsonpath='{.data}' | jq 'keys'
 
 # Check SCC permissions (OpenShift with Toolhive)
 oc get clusterrolebindings | grep mcp-servers
 oc describe clusterrolebinding mcp-servers-toolhive-operator-anyuid
 
 # Oracle-specific troubleshooting
-oc logs oracle23ai-0 | grep -E "(ORA-27350|cannot set groups)"
-oc get scc oracle23ai-scc -o jsonpath='{.allowedCapabilities}'
-oc describe scc oracle23ai-scc | grep -A 5 "Required Drop Capabilities"
+oc logs oracle-db-0 | grep -E "(ORA-27350|cannot set groups)"
+oc get scc oracle-db-scc -o jsonpath='{.allowedCapabilities}'
+oc describe scc oracle-db-scc | grep -A 5 "Required Drop Capabilities"
 ```
 
 ## Adding New MCP Servers
