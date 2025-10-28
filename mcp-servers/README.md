@@ -138,12 +138,14 @@ helm upgrade -i toolhive-operator-crds \
 
 **OpenShift Installation:**
 ```bash
-# Install Toolhive operator with OpenShift-specific security context settings
+# Install Toolhive operator with OpenShift defaults
 helm upgrade -i toolhive-operator \
   oci://ghcr.io/stacklok/toolhive/toolhive-operator \
   -n toolhive-system --create-namespace \
   --set operator.podSecurityContext.seccompProfile.type=RuntimeDefault \
-  --set operator.containerSecurityContext.runAsUser=null
+  --set operator.containerSecurityContext.runAsUser=null \
+  --set operator.resources.limits.memory=384Mi \
+  --set operator.resources.requests.memory=192Mi
 
 # Verify Toolhive operator is running
 oc get pods -n toolhive-system
@@ -173,11 +175,12 @@ helm upgrade -i toolhive-operator-crds \
   --create-namespace
 
 helm upgrade -i toolhive-operator \
-  -n toolhive-system \
   oci://ghcr.io/stacklok/toolhive/toolhive-operator \
-  --create-namespace \
+  -n toolhive-system --create-namespace \
   --set operator.podSecurityContext.seccompProfile.type=RuntimeDefault \
-  --set operator.containerSecurityContext.runAsUser=null
+  --set operator.containerSecurityContext.runAsUser=null \
+  --set operator.resources.limits.memory=384Mi \
+  --set operator.resources.requests.memory=192Mi
 
 # 2. Install MCP Servers (auto-detects Toolhive)
 helm install mcp-servers ./helm --namespace <your-namespace> --create-namespace

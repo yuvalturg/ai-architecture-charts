@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-set -x
 
 echo "Starting Oracle SQLcl MCP Server..."
 echo "ORACLE_HOME: $ORACLE_HOME"
@@ -28,14 +27,38 @@ mkdir -p /sqlcl-home/empty || true
 export SQLPATH=/sqlcl-home/empty
 cd /sqlcl-home || true
 
-# Create a saved SQLcl connection if env vars provided
+# Test and create saved SQLcl connection if env vars provided
 if [ -n "$ORACLE_USER" ] && [ -n "$ORACLE_PASSWORD" ] && [ -n "$ORACLE_CONNECTION_STRING" ]; then
+  # Wait for database connection to be available (retry for 30 minutes)
+  echo "Waiting for database connection to be available..."
+  MAX_RETRIES=360  # 30 minutes with 5-second intervals
+  RETRY_COUNT=0
+
+  while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    echo "Testing connection to Oracle (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
+    if /opt/oracle/sqlcl/bin/sql -S -L ${ORACLE_USER}/${ORACLE_PASSWORD}@${ORACLE_CONNECTION_STRING} <<< "exit" 2>&1; then
+      echo "Successfully connected to Oracle database!"
+      break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+      echo "Connection test failed. Retrying in 5 seconds..."
+      sleep 5
+    fi
+  done
+
+  if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo "ERROR: Failed to connect to Oracle after 30 minutes"
+    exit 1
+  fi
+
+  # Connection successful, now save it
   CONNECTION_ALIAS=${ORACLE_CONN_NAME:-oracle_connection}
   echo "Creating saved connection: $CONNECTION_ALIAS"
   echo "connect -savepwd -save $CONNECTION_ALIAS ${ORACLE_USER}/${ORACLE_PASSWORD}@${ORACLE_CONNECTION_STRING}" | /opt/oracle/sqlcl/bin/sql /NOLOG || true
 else
-  echo "Skipping saved connection creation; missing ORACLE_USER/ORACLE_PASSWORD/ORACLE_CONNECTION_STRING environment variables"
+  echo "Skipping connection test and saved connection creation; missing ORACLE_USER/ORACLE_PASSWORD/ORACLE_CONNECTION_STRING environment variables"
 fi
 
-# Start SQLcl MCP 
+# Start SQLcl MCP
 exec /opt/oracle/sqlcl/bin/sql -mcp
