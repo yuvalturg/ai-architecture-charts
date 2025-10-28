@@ -19,6 +19,7 @@ mcp-servers:
     enabled: false  # Oracle DB is available
     deploymentMode: mcpserver  # auto, mcpserver, or deployment
     port: 8080
+    proxyMode: streamable-http
     transport: stdio
     image:
       repository: quay.io/rh-ai-quickstart/oracle-sqlcl
