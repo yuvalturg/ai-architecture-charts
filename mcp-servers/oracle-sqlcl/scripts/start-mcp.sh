@@ -33,29 +33,35 @@ if [ -n "$ORACLE_USER" ] && [ -n "$ORACLE_PASSWORD" ] && [ -n "$ORACLE_CONNECTIO
   echo "Waiting for database connection to be available..."
   MAX_RETRIES=360  # 30 minutes with 5-second intervals
   RETRY_COUNT=0
+  CONNECTION_ALIAS=${ORACLE_CONN_NAME:-oracle_connection}
 
   while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     echo "Testing connection to Oracle (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
     if /opt/oracle/sqlcl/bin/sql -S -L ${ORACLE_USER}/${ORACLE_PASSWORD}@${ORACLE_CONNECTION_STRING} <<< "exit" 2>&1; then
       echo "Successfully connected to Oracle database!"
-      break
+
+      # Connection test successful, now try to create saved connection
+      echo "Creating saved connection: $CONNECTION_ALIAS"
+      if echo "connect -savepwd -save $CONNECTION_ALIAS ${ORACLE_USER}/${ORACLE_PASSWORD}@${ORACLE_CONNECTION_STRING}" | /opt/oracle/sqlcl/bin/sql /NOLOG 2>&1; then
+        echo "Successfully created saved connection: $CONNECTION_ALIAS"
+        break
+      else
+        echo "WARNING: Failed to create saved connection. Retrying in 5 seconds..."
+      fi
+    else
+      echo "Connection test failed. Retrying in 5 seconds..."
     fi
+
     RETRY_COUNT=$((RETRY_COUNT + 1))
     if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-      echo "Connection test failed. Retrying in 5 seconds..."
       sleep 5
     fi
   done
 
   if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    echo "ERROR: Failed to connect to Oracle after 30 minutes"
+    echo "ERROR: Failed to connect to Oracle and create saved connection after 30 minutes"
     exit 1
   fi
-
-  # Connection successful, now save it
-  CONNECTION_ALIAS=${ORACLE_CONN_NAME:-oracle_connection}
-  echo "Creating saved connection: $CONNECTION_ALIAS"
-  echo "connect -savepwd -save $CONNECTION_ALIAS ${ORACLE_USER}/${ORACLE_PASSWORD}@${ORACLE_CONNECTION_STRING}" | /opt/oracle/sqlcl/bin/sql /NOLOG || true
 else
   echo "Skipping connection test and saved connection creation; missing ORACLE_USER/ORACLE_PASSWORD/ORACLE_CONNECTION_STRING environment variables"
 fi
