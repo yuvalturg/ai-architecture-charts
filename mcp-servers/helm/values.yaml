@@ -15,7 +15,7 @@ mcp-servers:
   
   oracle-sqlcl:
     # Oracle SQLcl MCP Server configuration
-    # NOTE: Requires Oracle database and oracle23ai secret to exist
+    # NOTE: Requires Oracle database and oracle-db secret to exist
     enabled: false  # Oracle DB is available
     deploymentMode: mcpserver  # auto, mcpserver, or deployment
     port: 8080
@@ -36,10 +36,10 @@ mcp-servers:
       HOME: "/sqlcl-home"
     envSecrets:
       ORACLE_PASSWORD:
-        name: oracle23ai
+        name: oracle-db
         key: password
       ORACLE_CONNECTION_STRING:
-        name: oracle23ai
+        name: oracle-db
         key: jdbc-uri
     resources:
       requests:

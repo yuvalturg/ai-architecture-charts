@@ -6,15 +6,15 @@ Replaces install.sh logic with comprehensive Kubernetes-native health checks
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "oracle23ai.fullname" . }}
+  name: {{ include "oracle-db.fullname" . }}
   labels:
-    {{- include "oracle23ai.labels" . | nindent 4 }}
+    {{- include "oracle-db.labels" . | nindent 4 }}
     app.kubernetes.io/component: database
 spec:
   replicas: {{ .Values.oracle.replicaCount }}
   selector:
     matchLabels:
-      {{- include "oracle23ai.selectorLabels" . | nindent 6 }}
+      {{- include "oracle-db.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: database
   {{- with .Values.oracle.volumeClaimTemplates }}
   volumeClaimTemplates:
@@ -27,7 +27,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "oracle23ai.labels" . | nindent 8 }}
+        {{- include "oracle-db.labels" . | nindent 8 }}
         app.kubernetes.io/component: database
         {{- with .Values.oracle.podLabels }}
         {{- toYaml . | nindent 8 }}
@@ -37,13 +37,13 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "oracle23ai.serviceAccountName" . }}
+      serviceAccountName: {{ include "oracle-db.serviceAccountName" . }}
       {{- with .Values.oracle.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: oracle23ai
+        - name: oracle-db
           {{- with .Values.oracle.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -110,12 +110,12 @@ spec:
               import http.server
               import socketserver
               
-              metrics_content = '''# HELP oracle23ai_up Oracle 23ai database status
-              # TYPE oracle23ai_up gauge
-              oracle23ai_up{instance="oracle23ai-0"} 1
-              # HELP oracle23ai_info Oracle 23ai information
-              # TYPE oracle23ai_info gauge
-              oracle23ai_info{version="23ai",chart="oracle23ai"} 1
+              metrics_content = '''# HELP oracle-db_up Oracle 23ai database status
+              # TYPE oracle-db_up gauge
+              oracle-db_up{instance="oracle-db-0"} 1
+              # HELP oracle-db_info Oracle 23ai information
+              # TYPE oracle-db_info gauge
+              oracle-db_info{version="23ai",chart="oracle-db"} 1
               '''
               
               class MetricsHandler(http.server.BaseHTTPRequestHandler):

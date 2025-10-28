@@ -13,7 +13,7 @@ A comprehensive Helm chart for deploying Oracle 23ai Database with optional TPC-
 ## 📁 Project Structure
 
 ```
-oracle23ai/
+oracle-db/
 ├── README.md                    # Project overview
 ├── README-UNIFIED-HELM.md       # This documentation
 └── helm/                # Complete Helm solution
@@ -35,8 +35,8 @@ oracle23ai/
 ### Basic Installation (Database Only)
 ```bash
 # Install Oracle 23ai database only
-helm install oracle23ai helm/ \
-  --namespace oracle23ai \
+helm install oracle-db helm/ \
+  --namespace oracle-db \
   --create-namespace \
   --set tpcds.enabled=false
 ```
@@ -44,16 +44,16 @@ helm install oracle23ai helm/ \
 ### Full Installation (Database + TPC-DS Data)
 ```bash
 # Install Oracle 23ai with TPC-DS data loading
-helm install oracle23ai helm/ \
-  --namespace oracle23ai \
+helm install oracle-db helm/ \
+  --namespace oracle-db \
   --create-namespace
 ```
 
 ### Custom Configuration
 ```bash
 # Install with custom settings
-helm install oracle23ai helm/ \
-  --namespace oracle23ai \
+helm install oracle-db helm/ \
+  --namespace oracle-db \
   --create-namespace \
   --set oracle.secret.password="MySecurePassword123!" \
   --set tpcds.scaleFactor=2 \
@@ -78,7 +78,7 @@ oracle:
   
   secret:
     password: ""  # Auto-generated if empty
-    host: oracle23ai
+    host: oracle-db
     port: "1521"
     serviceName: "freepdb1"
   
@@ -134,14 +134,14 @@ tpcds:
 ```
 
 ```bash
-helm install oracle-db helm/ -f values-db-only.yaml -n oracle23ai --create-namespace
+helm install oracle-db helm/ -f values-db-only.yaml -n oracle-db --create-namespace
 ```
 
 ### 2. Database + TPC-DS Data (Default)
 Complete setup with benchmark data for testing and development:
 
 ```bash
-helm install oracle-complete helm/ -n oracle23ai --create-namespace
+helm install oracle-complete helm/ -n oracle-db --create-namespace
 ```
 
 ### 3. Data Loading to Existing Database
@@ -160,7 +160,7 @@ tpcds:
 ```
 
 ```bash
-helm install tpcds-loader helm/ -f values-loader-only.yaml -n oracle23ai
+helm install tpcds-loader helm/ -f values-loader-only.yaml -n oracle-db
 ```
 
 ## 🔍 Monitoring and Verification
@@ -168,25 +168,25 @@ helm install tpcds-loader helm/ -f values-loader-only.yaml -n oracle23ai
 ### Check Installation Progress
 ```bash
 # Overall status
-helm status oracle23ai -n oracle23ai
+helm status oracle-db -n oracle-db
 
 # Watch pods
-oc get pods -n oracle23ai -w
+oc get pods -n oracle-db -w
 
 # Check Oracle logs
-oc logs -f oracle23ai-0 -n oracle23ai
+oc logs -f oracle-db-0 -n oracle-db
 
 # Check TPC-DS data loading
-oc logs -f job/oracle23ai-tpcds-populate -n oracle23ai
+oc logs -f job/oracle-db-tpcds-populate -n oracle-db
 ```
 
 ### Database Connection
 ```bash
 # Get generated password
-oc get secret oracle23ai -n oracle23ai -o jsonpath='{.data.password}' | base64 -d
+oc get secret oracle-db -n oracle-db -o jsonpath='{.data.password}' | base64 -d
 
 # Port forward for external access
-oc port-forward svc/oracle23ai 1521:1521 -n oracle23ai
+oc port-forward svc/oracle-db 1521:1521 -n oracle-db
 
 # Connect using sqlplus or any Oracle client
 sqlplus system/<password>@localhost:1521/freepdb1
@@ -195,7 +195,7 @@ sqlplus system/<password>@localhost:1521/freepdb1
 ### Verify TPC-DS Data
 ```bash
 # Check if data was loaded successfully
-oc exec oracle23ai-0 -n oracle23ai -- sqlplus -s system/<password>@localhost:1521/freepdb1 <<EOF
+oc exec oracle-db-0 -n oracle-db -- sqlplus -s system/<password>@localhost:1521/freepdb1 <<EOF
 SELECT table_name, num_rows FROM user_tables WHERE table_name LIKE '%STORE%';
 EXIT;
 EOF
@@ -211,7 +211,7 @@ oracle:
       valueFrom:
         secretKeyRef:
           key: password
-          name: oracle23ai
+          name: oracle-db
     - name: ORACLE_CHARACTERSET
       value: "AL32UTF8"
     - name: ENABLE_ARCHIVELOG
@@ -272,28 +272,28 @@ tpcds:
 **Oracle Pod Not Ready**
 ```bash
 # Check Oracle logs for initialization issues
-oc logs oracle23ai-0 -n oracle23ai
+oc logs oracle-db-0 -n oracle-db
 
 # Increase readiness probe timeout
-helm upgrade oracle23ai helm/ --set oracle.probes.readiness.failureThreshold=30
+helm upgrade oracle-db helm/ --set oracle.probes.readiness.failureThreshold=30
 ```
 
 **TPC-DS Job Fails**
 ```bash
 # Check init container logs
-oc logs <tpcds-pod> -c wait-for-oracle-complete-readiness -n oracle23ai
+oc logs <tpcds-pod> -c wait-for-oracle-complete-readiness -n oracle-db
 
 # Check main container logs
-oc logs <tpcds-pod> -c tpcds-populate -n oracle23ai
+oc logs <tpcds-pod> -c tpcds-populate -n oracle-db
 ```
 
 **Permission Denied**
 ```bash
 # Ensure SCC is created (OpenShift)
-oc get scc oracle23ai-scc
+oc get scc oracle-db-scc
 
 # Check service account permissions
-oc describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
+oc describe rolebinding oracle-db-tpcds-binding -n oracle-db
 ```
 
 ## 🗑️ Cleanup
@@ -301,22 +301,22 @@ oc describe rolebinding oracle23ai-tpcds-binding -n oracle23ai
 ### Complete Uninstall
 ```bash
 # Remove Helm release
-helm uninstall oracle23ai -n oracle23ai
+helm uninstall oracle-db -n oracle-db
 
 # Clean up persistent data
-oc delete pvc --all -n oracle23ai
+oc delete pvc --all -n oracle-db
 
 # Remove namespace
-oc delete namespace oracle23ai
+oc delete namespace oracle-db
 
 # Remove SCC (OpenShift)
-oc delete scc oracle23ai-scc
+oc delete scc oracle-db-scc
 ```
 
 ### Partial Cleanup (Keep Database)
 ```bash
 # Remove only TPC-DS components
-helm upgrade oracle23ai helm/ --set tpcds.enabled=false
+helm upgrade oracle-db helm/ --set tpcds.enabled=false
 ```
 
 ## 📈 Performance Tuning

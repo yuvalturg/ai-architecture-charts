@@ -83,7 +83,7 @@ Examples:
   ```
 - connect (explicit connection)
   ```json
-  { "connectionName": "oracle23ai_connection_demo" }
+  { "connectionName": "oracle_db_connection_demo" }
   ```
 - run-sql (after connect)
   ```json
@@ -92,7 +92,7 @@ Examples:
 - run-sql (with explicit connection)
   ```json
   {
-    "connectionName": "oracle23ai_connection_demo",
+    "connectionName": "oracle_db_connection_demo",
     "sql": "select 1 as ok from dual"
   }
   ```

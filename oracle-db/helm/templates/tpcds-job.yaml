@@ -6,9 +6,9 @@ Replaces install.sh script logic with Kubernetes-native dependency management
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "oracle23ai.fullname" . }}-tpcds-populate
+  name: {{ include "oracle-db.fullname" . }}-tpcds-populate
   labels:
-    {{- include "oracle23ai.labels" . | nindent 4 }}
+    {{- include "oracle-db.labels" . | nindent 4 }}
     app.kubernetes.io/component: data-loader
   {{- with .Values.tpcds.job.annotations }}
   annotations:
@@ -20,11 +20,11 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "oracle23ai.selectorLabels" . | nindent 8 }}
+        {{- include "oracle-db.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: data-loader
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "oracle23ai.fullname" . }}-tpcds
+      serviceAccountName: {{ include "oracle-db.fullname" . }}-tpcds
       
       initContainers:
       {{/* 
@@ -32,7 +32,7 @@ spec:
       Replicates entire install.sh wait_for_oracle_ready() + verify_system_user_access() logic
       */}}
       - name: wait-for-oracle-complete-readiness
-        image: "quay.io/rh-ai-quickstart/oracle23ai-tpcds:{{ .Chart.Version }}"
+        image: "quay.io/rh-ai-quickstart/oracle-db-tpcds:{{ .Chart.Version }}"
         command: ["/bin/bash", "-c"]
         args:
         - |
@@ -48,7 +48,7 @@ spec:
           while [[ $elapsed -lt 60 ]]; do
             # Use Kubernetes API directly via service account token
             if curl -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/secrets/oracle23ai" \
+              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/secrets/oracle-db" \
               > /dev/null 2>&1; then
               echo "✅ Oracle secret found"
               break
@@ -73,7 +73,7 @@ spec:
           while [[ $elapsed -lt 900 ]]; do
             # Get Oracle pod logs and check for readiness message
             log_check=$(curl -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/pods/oracle23ai-0/log" \
+              "https://kubernetes.default.svc/api/v1/namespaces/{{ .Release.Namespace }}/pods/oracle-db-0/log" \
               | grep -c "DATABASE IS READY TO USE!" 2>/dev/null || echo "0")
             log_check=$(echo "$log_check" | tr -d '\n\r' | head -1)
             
@@ -105,7 +105,7 @@ spec:
           
           # Configure tpcds-util for connectivity test
           tpcds-util config set \
-            --host "oracle23ai" \
+            --host "oracle-db" \
             --port "1521" \
             --service-name "freepdb1" \
             --username "system" \
@@ -185,7 +185,7 @@ spec:
       Replaces install.sh tpcds data loading steps
       */}}
       - name: tpcds-populate
-        image: "quay.io/rh-ai-quickstart/oracle23ai-tpcds:{{ .Chart.Version }}"
+        image: "quay.io/rh-ai-quickstart/oracle-db-tpcds:{{ .Chart.Version }}"
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
         args:
