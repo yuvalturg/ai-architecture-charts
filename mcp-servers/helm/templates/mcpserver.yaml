@@ -33,7 +33,10 @@ spec:
   {{- end }}
   {{- with $server.env }}
   env:
-    {{- toYaml . | nindent 4 }}
+  {{- range $envKey, $envValue := . }}
+  - name: {{ $envKey }}
+    value: {{ $envValue | default "" | quote }}
+  {{- end }}
   {{- end }}
   {{- with $server.envSecrets }}
   secrets:
