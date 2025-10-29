@@ -246,193 +246,21 @@ class DatabaseManager:
 
                         conn.commit()
 
-            console.print(f"✅ Successfully executed {sql_file.name}", style="green")
+            console.print(f"Successfully executed {sql_file.name}", style="green")
             return True
 
         except Exception as e:
             click.echo(f"Error executing SQL file {sql_file}: {e}", err=True)
             return False
 
-    def _check_schema_user_exists(self, schema_name: str) -> bool:
-        """Check if a schema/user exists in the database."""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT COUNT(*) FROM all_users WHERE username = :schema_name",
-                        {"schema_name": schema_name.upper()},
-                    )
-                    return cursor.fetchone()[0] > 0
-        except Exception:
-            return False
-
-    def _create_schema_user(self, schema_name: str, user_password: str = None) -> bool:
-        """Create a new database user/schema with appropriate privileges."""
-        try:
-            # Use provided password or get from environment
-            if not user_password:
-                user_password = os.getenv("TPCDS_DB_PASSWORD")
-                if not user_password:
-                    user_password = f"{schema_name.lower()}_pass123"
-
-            console.print(f"📋 Creating database user: {schema_name}", style="cyan")
-
-            # Use SYSDBA connection for user creation
-            try:
-                # Try to connect as SYSDBA first for user creation
-                connection = oracledb.connect(
-                    dsn=self.config.database.dsn, mode=oracledb.AUTH_MODE_SYSDBA
-                )
-                connection.autocommit = True
-
-                with connection.cursor() as cursor:
-                    # Switch to FREEPDB1
-                    cursor.execute("ALTER SESSION SET CONTAINER = FREEPDB1")
-
-                    # Check if user exists
-                    cursor.execute(
-                        "SELECT COUNT(*) FROM dba_users WHERE username = :username",
-                        {"username": schema_name.upper()},
-                    )
-                    user_count = cursor.fetchone()[0]
-
-                    if user_count == 0:
-                        # Create the user with secure password handling
-                        cursor.execute(
-                            f'CREATE USER {schema_name} IDENTIFIED BY "{user_password}"'
-                        )
-                        console.print(
-                            f"✅ User {schema_name} created successfully", style="green"
-                        )
-                    else:
-                        console.print(
-                            f"⚠️  User {schema_name} already exists", style="yellow"
-                        )
-
-                    # Grant basic privileges
-                    privileges = [
-                        "CREATE SESSION",
-                        "CREATE TABLE",
-                        "CREATE SEQUENCE",
-                        "CREATE VIEW",
-                        "CREATE PROCEDURE",
-                        "CREATE TRIGGER",
-                        "CREATE SYNONYM",
-                    ]
-
-                    for privilege in privileges:
-                        try:
-                            cursor.execute(f"GRANT {privilege} TO {schema_name}")
-                        except oracledb.Error:
-                            pass  # May already be granted
-
-                    # Grant unlimited tablespace quota
-                    try:
-                        cursor.execute(f"GRANT UNLIMITED TABLESPACE TO {schema_name}")
-                    except oracledb.Error:
-                        pass  # May already be granted
-
-                    console.print(
-                        f"✅ Privileges granted to user {schema_name}", style="green"
-                    )
-                    connection.close()
-                    return True
-
-            except oracledb.Error:
-                # Fallback to regular connection if SYSDBA fails
-                console.print(
-                    "🔄 SYSDBA access not available, trying alternative approach",
-                    style="yellow",
-                )
-                return self._create_schema_user_fallback(schema_name, user_password)
-
-        except Exception as e:
-            console.print(f"❌ Error creating user {schema_name}: {e}", style="red")
-            return False
-
-    def _create_schema_user_fallback(
-        self, schema_name: str, user_password: str
-    ) -> bool:
-        """Fallback method for user creation when SYSDBA is not available."""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    console.print(
-                        f"📋 Creating database user via fallback method: {schema_name}",
-                        style="cyan",
-                    )
-
-                    # Create the user
-                    cursor.execute(
-                        f'CREATE USER {schema_name} IDENTIFIED BY "{user_password}"'
-                    )
-
-                    # Grant basic privileges
-                    privileges = [
-                        "CREATE SESSION",
-                        "CREATE TABLE",
-                        "UNLIMITED TABLESPACE",
-                    ]
-
-                    for privilege in privileges:
-                        cursor.execute(f"GRANT {privilege} TO {schema_name}")
-
-                    conn.commit()
-
-                    console.print(
-                        f"✅ Created database user {schema_name}", style="green"
-                    )
-                    console.print(
-                        f"💡 Note: User {schema_name} has been granted necessary privileges for TPC-DS operations",
-                        style="blue",
-                    )
-
-                    return True
-
-        except oracledb.Error as e:
-            if "ORA-01031" in str(e):
-                console.print(
-                    f"❌ Insufficient privileges to create user {schema_name}",
-                    style="red",
-                )
-                console.print(
-                    f"💡 Please ask your DBA to run: CREATE USER {schema_name} IDENTIFIED BY password",
-                    style="blue",
-                )
-                console.print(
-                    f"💡 And grant privileges: GRANT CREATE SESSION, CREATE TABLE, UNLIMITED TABLESPACE TO {schema_name}",
-                    style="blue",
-                )
-            elif "ORA-01920" in str(e):  # User name already exists
-                console.print(f"⚠️  User {schema_name} already exists", style="yellow")
-                return True
-            else:
-                console.print(f"❌ Error creating user {schema_name}: {e}", style="red")
-            return False
-        except Exception as e:
-            console.print(f"❌ Error creating user {schema_name}: {e}", style="red")
-            return False
-
-    def _check_create_privileges(self, target_schema: str) -> bool:
-        """Check if current user can create tables in target schema."""
-        try:
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    # Test if we can create a table in the target schema
-                    test_table = f"{target_schema}.TPCDS_PRIVILEGE_TEST"
-                    cursor.execute(f"CREATE TABLE {test_table} (test_col NUMBER)")
-                    cursor.execute(f"DROP TABLE {test_table}")
-                    conn.commit()
-                    return True
-        except oracledb.Error:
-            return False
-        except Exception:
-            return False
-
     def create_schema(
         self, schema_file: Optional[Path] = None, schema_override: Optional[str] = None
     ) -> bool:
-        """Create TPC-DS schema with automatic user/privilege management."""
+        """Create TPC-DS tables in the specified schema.
+
+        Note: The schema/user must already exist with appropriate privileges.
+        Use --schema to target a specific schema, or omit to use current user's schema.
+        """
         schema_name = self._get_schema_name(schema_override)
 
         if schema_file is None:
@@ -455,52 +283,16 @@ class DatabaseManager:
                 )
                 return False
 
-        # Handle schema creation logic
+        # Create tables in target schema
         if schema_name:
-            console.print(f"🎯 Target schema: {schema_name}", style="cyan")
-
-            # Check if target schema user exists
-            if not self._check_schema_user_exists(schema_name):
-                console.print(
-                    f"📋 Schema user {schema_name} does not exist, creating...",
-                    style="yellow",
-                )
-                if not self._create_schema_user(schema_name):
-                    console.print(
-                        f"❌ Failed to create schema user {schema_name}", style="red"
-                    )
-                    console.print(
-                        f"💡 Proceeding to check if current user has privileges to create tables in {schema_name}",
-                        style="blue",
-                    )
-
-            # Check if we have privileges to create tables in target schema
-            if not self._check_create_privileges(schema_name):
-                console.print(
-                    f"❌ Current user cannot create tables in schema {schema_name}",
-                    style="red",
-                )
-                console.print(f"💡 Options:", style="blue")
-                console.print(
-                    f"   1. Ask DBA to grant CREATE ANY TABLE privilege to current user",
-                    style="blue",
-                )
-                console.print(
-                    f"   2. Ask DBA to create user {schema_name} with necessary privileges",
-                    style="blue",
-                )
-                console.print(
-                    f"   3. Use current user's schema by omitting --schema parameter",
-                    style="blue",
-                )
-                return False
-
             console.print(
-                f"Creating TPC-DS schema from {schema_file} in schema {schema_name}"
+                f"Creating TPC-DS tables from {schema_file} in schema {schema_name}",
+                style="cyan",
             )
         else:
             console.print(
-                f"Creating TPC-DS schema from {schema_file} in current user's schema"
+                f"Creating TPC-DS tables from {schema_file} in current user's schema",
+                style="cyan",
             )
 
         return self.execute_sql_file(schema_file, target_schema=schema_name)
@@ -692,17 +484,17 @@ class DatabaseManager:
                     # Report results
                     if dropped_count > 0:
                         console.print(
-                            f"✅ Successfully dropped {dropped_count} tables",
+                            f"Successfully dropped {dropped_count} tables",
                             style="green",
                         )
 
                     if failed_tables:
                         console.print(
-                            f"⚠️  Failed to drop {len(failed_tables)} tables: {', '.join(failed_tables)}",
+                            f"Failed to drop {len(failed_tables)} tables: {', '.join(failed_tables)}",
                             style="yellow",
                         )
                         console.print(
-                            "💡 Tip: You may need DBA privileges to drop tables in other schemas",
+                            "Tip: You may need DBA privileges to drop tables in other schemas",
                             style="blue",
                         )
 
@@ -815,307 +607,6 @@ class DatabaseManager:
         except Exception as e:
             click.echo(f"Error getting table info: {e}", err=True)
             return []
-
-    def create_user(
-        self, username: str, password: str = None, tablespace: str = "UNLIMITED"
-    ) -> bool:
-        """Create a new Oracle user/schema with appropriate privileges."""
-        try:
-            # Use the existing _create_schema_user method
-            if password is None:
-                password = (
-                    os.getenv("TPCDS_DB_PASSWORD") or f"{username.lower()}_pass123"
-                )
-
-            return self._create_schema_user(username, password)
-
-        except Exception as e:
-            console.print(f"❌ Error creating user {username}: {e}", style="red")
-            return False
-
-    def restrict_user_privileges(self, username: str) -> bool:
-        """Restrict a user by removing dangerous system privileges.
-
-        Note: Oracle table owners always have full DML privileges on their own tables.
-        This function documents the limitation and removes what privileges it can.
-
-        Args:
-            username: Username/schema to restrict
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            console.print(
-                f"🔒 Restricting privileges for user {username}...", style="cyan"
-            )
-            console.print(
-                f"⚠️  Oracle limitation: Table owners cannot be made read-only to their own tables",
-                style="yellow",
-            )
-            console.print(
-                f"   For true read-only access, create a separate user with SELECT-only grants",
-                style="yellow",
-            )
-            console.print(
-                f"   Current approach: Revoke system privileges only", style="yellow"
-            )
-
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    # List of dangerous privileges to revoke
-                    dangerous_privileges = [
-                        "CREATE TABLE",
-                        "CREATE INDEX",
-                        "CREATE VIEW",
-                        "CREATE PROCEDURE",
-                        "CREATE FUNCTION",
-                        "CREATE PACKAGE",
-                        "CREATE TRIGGER",
-                        "CREATE SEQUENCE",
-                        "CREATE SYNONYM",
-                        "CREATE TYPE",
-                        "CREATE MATERIALIZED VIEW",
-                    ]
-
-                    # Revoke dangerous system privileges
-                    revoked_count = 0
-                    for privilege in dangerous_privileges:
-                        try:
-                            cursor.execute(
-                                f"REVOKE {privilege} FROM {username.upper()}"
-                            )
-                            revoked_count += 1
-                        except oracledb.Error:
-                            # Privilege might not have been granted, continue
-                            pass
-
-                    # Ensure user can still connect
-                    try:
-                        cursor.execute(f"GRANT CREATE SESSION TO {username.upper()}")
-                    except oracledb.Error:
-                        pass  # Might already be granted
-
-                    console.print(
-                        f"✅ Revoked {revoked_count} system privileges from {username}",
-                        style="green",
-                    )
-                    console.print(
-                        f"⚠️  Warning: User can still modify their own tables (Oracle limitation)",
-                        style="yellow",
-                    )
-                    console.print(
-                        f"   For AI/MCP servers, consider using SYSTEM schema with SELECT grants",
-                        style="dim",
-                    )
-                    return True
-
-        except Exception as e:
-            console.print(f"❌ Error modifying user {username}: {e}", style="red")
-            return False
-
-    def copy_schema(
-        self,
-        source_schema: str,
-        target_schema: str,
-        table_list: List[str] = None,
-        include_data: bool = True,
-    ) -> bool:
-        """Copy tables from one schema to another.
-
-        Args:
-            source_schema: Source schema name to copy from
-            target_schema: Target schema name to copy to
-            table_list: Optional list of specific tables to copy (defaults to all TPC-DS tables)
-            include_data: Whether to copy data or just structure (default: True)
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            # Default to ALL TPC-DS tables if no specific list provided
-            if table_list is None:
-                table_list = [
-                    "DBGEN_VERSION",
-                    "CUSTOMER_ADDRESS",
-                    "CUSTOMER_DEMOGRAPHICS",
-                    "DATE_DIM",
-                    "WAREHOUSE",
-                    "SHIP_MODE",
-                    "TIME_DIM",
-                    "REASON",
-                    "INCOME_BAND",
-                    "ITEM",
-                    "STORE",
-                    "CALL_CENTER",
-                    "CUSTOMER",
-                    "WEB_SITE",
-                    "STORE_RETURNS",
-                    "HOUSEHOLD_DEMOGRAPHICS",
-                    "WEB_PAGE",
-                    "PROMOTION",
-                    "CATALOG_PAGE",
-                    "INVENTORY",
-                    "CATALOG_RETURNS",
-                    "WEB_RETURNS",
-                    "WEB_SALES",
-                    "CATALOG_SALES",
-                    "STORE_SALES",
-                ]
-
-            console.print(
-                f"📋 Copying {len(table_list)} tables from {source_schema} to {target_schema}",
-                style="cyan",
-            )
-
-            # Ensure target user exists
-            if not self._check_schema_user_exists(target_schema):
-                console.print(
-                    f"📋 Target schema {target_schema} doesn't exist, creating...",
-                    style="yellow",
-                )
-                if not self.create_user(target_schema):
-                    console.print(
-                        f"❌ Failed to create target schema {target_schema}",
-                        style="red",
-                    )
-                    return False
-
-            with self.get_connection() as conn:
-                with conn.cursor() as cursor:
-                    successful_copies = 0
-                    failed_copies = []
-
-                    with Progress(
-                        SpinnerColumn(),
-                        TextColumn("[progress.description]{task.description}"),
-                        console=console,
-                    ) as progress:
-                        task = progress.add_task(
-                            f"Copying tables to {target_schema}...",
-                            total=len(table_list),
-                        )
-
-                        for table in table_list:
-                            try:
-                                source_table = (
-                                    f"{source_schema.upper()}.{table.upper()}"
-                                )
-                                target_table = (
-                                    f"{target_schema.upper()}.{table.upper()}"
-                                )
-
-                                # Check if source table exists
-                                check_sql = f"SELECT COUNT(*) FROM all_tables WHERE owner = '{source_schema.upper()}' AND table_name = '{table.upper()}'"
-                                cursor.execute(check_sql)
-
-                                if cursor.fetchone()[0] == 0:
-                                    console.print(
-                                        f"⚠️  Source table {source_table} doesn't exist, skipping",
-                                        style="yellow",
-                                    )
-                                    progress.advance(task)
-                                    continue
-
-                                # Drop target table if it exists
-                                try:
-                                    cursor.execute(
-                                        f"DROP TABLE {target_table} CASCADE CONSTRAINTS"
-                                    )
-                                    console.print(
-                                        f"🗑️  Dropped existing {target_table}",
-                                        style="yellow",
-                                    )
-                                except oracledb.Error:
-                                    pass  # Table doesn't exist, which is fine
-
-                                if include_data:
-                                    # Copy table structure and data
-                                    console.print(
-                                        f"📊 Copying {table} with data...", style="cyan"
-                                    )
-                                    sql = f"CREATE TABLE {target_schema.upper()}.{table.upper()} AS SELECT * FROM {source_schema.upper()}.{table.upper()}"
-                                    cursor.execute(sql)
-                                else:
-                                    # Copy table structure only
-                                    console.print(
-                                        f"🏗️  Copying {table} structure only...",
-                                        style="cyan",
-                                    )
-                                    sql = (
-                                        f"CREATE TABLE {target_schema.upper()}.{table.upper()} "
-                                        f"AS SELECT * FROM {source_schema.upper()}.{table.upper()} WHERE 1=0"
-                                    )
-                                    cursor.execute(sql)
-
-                                successful_copies += 1
-                                console.print(
-                                    f"✅ Successfully copied {table}", style="green"
-                                )
-
-                            except oracledb.Error as e:
-                                error_msg = str(e)
-                                if "ORA-01031" in error_msg:
-                                    console.print(
-                                        f"❌ Insufficient privileges to copy {table}",
-                                        style="red",
-                                    )
-                                elif "ORA-00942" in error_msg:
-                                    console.print(
-                                        f"❌ Source table {table} not found",
-                                        style="red",
-                                    )
-                                else:
-                                    console.print(
-                                        f"❌ Error copying {table}: {error_msg[:100]}",
-                                        style="red",
-                                    )
-                                failed_copies.append(table)
-
-                            progress.advance(task)
-
-                        conn.commit()
-
-                    # Report results
-                    console.print(f"📈 Copy Summary:", style="bold blue")
-                    console.print(
-                        f"✅ Successfully copied: {successful_copies} tables",
-                        style="green",
-                    )
-
-                    if failed_copies:
-                        console.print(
-                            f"❌ Failed to copy: {len(failed_copies)} tables",
-                            style="red",
-                        )
-                        console.print(
-                            f"   Failed tables: {', '.join(failed_copies)}", style="red"
-                        )
-                        return False
-
-                    # Show verification of copied data
-                    console.print(
-                        f"🔍 Verification - Table counts in {target_schema}:",
-                        style="cyan",
-                    )
-                    for table in table_list:
-                        if table not in failed_copies:
-                            try:
-                                cursor.execute(
-                                    f"SELECT COUNT(*) FROM {target_schema.upper()}.{table.upper()}"
-                                )
-                                count = cursor.fetchone()[0]
-                                console.print(
-                                    f"   {table}: {count:,} rows", style="blue"
-                                )
-                            except oracledb.Error:
-                                pass
-
-                    return True
-
-        except Exception as e:
-            console.print(f"❌ Error copying schema: {e}", style="red")
-            return False
 
 
 # Global database manager instance

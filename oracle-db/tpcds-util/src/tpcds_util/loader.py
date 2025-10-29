@@ -183,7 +183,7 @@ TRAILING NULLCOLS
                                 style="red",
                             )
                             console.print(
-                                f"❌ Need to create table {table.upper()} first with schema create command",
+                                f"Need to create table {table.upper()} first with schema create command",
                                 style="red",
                             )
                             return False  # Fail if table doesn't exist
@@ -338,8 +338,12 @@ TRAILING NULLCOLS
         parallel: Optional[int] = None,
         table: Optional[str] = None,
         schema_override: Optional[str] = None,
+        schema_file: Optional[Path] = None,
     ) -> bool:
-        """Load TPC-DS data into database."""
+        """Load TPC-DS data into database.
+
+        Automatically creates tables if they don't exist before loading data.
+        """
 
         data_dir = data_dir or self.config.default_output_dir
         parallel = parallel or self.config.parallel_workers
@@ -360,16 +364,29 @@ TRAILING NULLCOLS
                 click.echo(f"Table {table} not found in data files", err=True)
                 return False
 
+        # Test database connection first
+        if not db_manager.test_connection():
+            click.echo("Database connection failed", err=True)
+            return False
+
+        # Automatically create tables if schema file is provided
+        if schema_file:
+            schema_name = self._get_schema_name(schema_override)
+            console.print(
+                f"Creating TPC-DS tables before loading data...", style="cyan"
+            )
+            if not db_manager.create_schema(schema_file, schema_override):
+                click.echo(
+                    "Failed to create tables - cannot proceed with data loading",
+                    err=True,
+                )
+                return False
+
         console.print(f"Loading {len(data_files)} tables from {data_dir}")
 
         # Create control files directory
         control_dir = Path(data_dir) / "control_files"
         control_dir.mkdir(exist_ok=True)
-
-        # Test database connection first
-        if not db_manager.test_connection():
-            click.echo("Database connection failed", err=True)
-            return False
 
         # Load tables
         success_count = 0
@@ -410,14 +427,14 @@ TRAILING NULLCOLS
                             success = future.result()
                             if success:
                                 success_count += 1
-                                console.print(f"✅ Loaded {table_name}", style="green")
+                                console.print(f"Loaded {table_name}", style="green")
                             else:
                                 console.print(
-                                    f"❌ Failed to load {table_name}", style="red"
+                                    f"Failed to load {table_name}", style="red"
                                 )
                         except Exception as e:
                             console.print(
-                                f"❌ Error loading {table_name}: {e}", style="red"
+                                f"Error loading {table_name}: {e}", style="red"
                             )
 
                         progress.advance(task)
@@ -438,21 +455,21 @@ TRAILING NULLCOLS
 
                     if success:
                         success_count += 1
-                        console.print(f"✅ Loaded {table_name}", style="green")
+                        console.print(f"Loaded {table_name}", style="green")
                     else:
-                        console.print(f"❌ Failed to load {table_name}", style="red")
+                        console.print(f"Failed to load {table_name}", style="red")
 
                     progress.advance(task)
 
         # Summary
         if success_count == len(data_files):
             console.print(
-                f"✅ All {success_count} tables loaded successfully", style="green"
+                f"All {success_count} tables loaded successfully", style="green"
             )
             return True
         else:
             console.print(
-                f"⚠️  {success_count}/{len(data_files)} tables loaded successfully",
+                f"{success_count}/{len(data_files)} tables loaded successfully",
                 style="yellow",
             )
             return False
@@ -502,7 +519,7 @@ TRAILING NULLCOLS
 
                         conn.commit()
 
-            console.print("✅ Tables truncated successfully", style="green")
+            console.print("Tables truncated successfully", style="green")
             return True
 
         except Exception as e:

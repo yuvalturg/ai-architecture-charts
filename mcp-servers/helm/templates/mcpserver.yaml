@@ -39,13 +39,23 @@ spec:
     value: {{ $envValue | default "" | quote }}
   {{- end }}
   {{- end }}
-  {{- with $server.envSecrets }}
+  {{- with $server.oracleSecret }}
   secrets:
-    {{- range $envName, $secretRef := . }}
-    - name: {{ $secretRef.name }}
-      key: {{ $secretRef.key }}
-      targetEnvName: {{ $envName }}
-    {{- end }}
+    - name: {{ . }}
+      key: username
+      targetEnvName: ORACLE_USER
+    - name: {{ . }}
+      key: password
+      targetEnvName: ORACLE_PWD
+    - name: {{ . }}
+      key: host
+      targetEnvName: ORACLE_HOST
+    - name: {{ . }}
+      key: port
+      targetEnvName: ORACLE_PORT
+    - name: {{ . }}
+      key: serviceName
+      targetEnvName: ORACLE_SERVICE
   {{- end }}
   {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources }}
   podTemplateSpec:

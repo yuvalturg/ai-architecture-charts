@@ -236,12 +236,37 @@ mcp-servers:
 
 - **Flexible Deployment**: Automatic adaptation to cluster capabilities
 - **Transport Protocols**: Both `stdio` and `sse` (with or without Toolhive)
-- **Secret Management**: Secure credential injection via `envSecrets`
+- **Secret Management**: Automatic Oracle database credential injection via `oracleSecret`
 - **Persistent Storage**: Optional volumes and PVCs
 - **Security Contexts**: Restricted permissions and SCC bindings
 - **Resource Limits**: CPU and memory management
 - **Resource Labels**: All resources tagged with `app.kubernetes.io/component: mcp-server`
 - **Auto-Discovery**: Works in any Kubernetes environment
+
+#### Oracle Database Integration
+
+The Oracle SQLcl MCP server integrates seamlessly with the oracle-db Helm chart through Kubernetes secrets:
+
+```yaml
+mcp-servers:
+  oracle-sqlcl:
+    enabled: true
+    oracleSecret: oracle-db-user-sales-reader  # Reference to Oracle user secret
+    env:
+      ORACLE_CONN_NAME: oracle_connection
+```
+
+**How it works:**
+1. The oracle-db Helm chart creates per-user secrets (e.g., `oracle-db-user-sales-reader`)
+2. Each secret contains: `username`, `password`, `host`, `port`, `serviceName`
+3. The mcp-servers template automatically maps these to environment variables:
+   - `ORACLE_USER` ← username
+   - `ORACLE_PWD` ← password
+   - `ORACLE_HOST` ← host
+   - `ORACLE_PORT` ← port
+   - `ORACLE_SERVICE` ← serviceName
+
+**No manual mapping required** - just specify the secret name!
 
 ## Security
 ### Credential Management
@@ -249,9 +274,10 @@ mcp-servers:
 This chart implements secure credential management:
 
 - **No hardcoded passwords**: All sensitive data sourced from Kubernetes secrets
-- **Secret references**: Uses `envSecrets` pattern for secure credential injection
-- **Oracle integration**: Leverages Oracle database's own secret for credentials
-- **API key management**: Allows secure injection of external API keys
+- **Automatic secret mapping**: Uses `oracleSecret` pattern for streamlined credential injection
+- **Oracle integration**: Seamlessly leverages Oracle database user secrets created by oracle-db Helm chart
+- **Standardized environment variables**: All Oracle credentials use `ORACLE_*` prefix (ORACLE_USER, ORACLE_PWD, ORACLE_HOST, ORACLE_PORT, ORACLE_SERVICE)
+- **API key management**: Allows secure injection of external API keys via `env` configuration
 
 ### Security Context
 

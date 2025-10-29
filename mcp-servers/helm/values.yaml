@@ -27,21 +27,12 @@ mcp-servers:
     permissionProfile:
       name: network
       type: builtin
+    oracleSecret: oracle-db-user-sales-reader
     env:
-      ORACLE_USER: "system"
-      ORACLE_PASSWORD: null  # Sourced from secret
-      ORACLE_CONNECTION_STRING: null  # Sourced from secret
       ORACLE_CONN_NAME: oracle_connection
       JAVA_TOOL_OPTIONS: "-Djava.io.tmpdir=/sqlcl-home/tmp"
       _JAVA_OPTIONS: ""
       HOME: "/sqlcl-home"
-    envSecrets:
-      ORACLE_PASSWORD:
-        name: oracle-db
-        key: password
-      ORACLE_CONNECTION_STRING:
-        name: oracle-db
-        key: jdbc-uri
     resources:
       requests:
         cpu: 500m

@@ -1,5 +1,6 @@
 """Command Line Interface for TPC-DS utility."""
 
+import sys
 from pathlib import Path
 
 import click
@@ -78,7 +79,7 @@ def config_set(**kwargs):
         return
 
     config_manager.update(**updates)
-    console.print("✅ Configuration updated successfully", style="green")
+    console.print("Configuration updated successfully", style="green")
 
 
 @config.command("init")
@@ -117,7 +118,7 @@ def config_init():
         parallel_workers=workers,
     )
 
-    console.print("✅ Configuration initialized successfully", style="green")
+    console.print("Configuration initialized successfully", style="green")
 
 
 @cli.group()
@@ -132,12 +133,13 @@ def db_test():
     console.print("Testing database connection...")
 
     if db_manager.test_connection():
-        console.print("✅ Database connection successful", style="green")
+        console.print("Database connection successful", style="green")
     else:
-        console.print("❌ Database connection failed", style="red")
+        console.print("Database connection failed", style="red")
         click.echo(
             "Please check your configuration with 'tpcds-util config show'", err=True
         )
+        sys.exit(1)
 
 
 @db.command("info")
@@ -177,164 +179,6 @@ def db_info(schema):
 
 
 @cli.group()
-def schema():
-    """Schema management operations."""
-    pass
-
-
-@schema.command("create")
-@click.option(
-    "--schema-file", type=click.Path(exists=True), help="Path to schema SQL file"
-)
-@click.option(
-    "--schema",
-    help="Target schema name (overrides config). Requires CREATE [ANY] TABLE privileges.",
-)
-def schema_create(schema_file, schema):
-    """Create TPC-DS schema.
-
-    Creates TPC-DS tables in your current user's schema by default.
-    Use --schema to target a different schema (requires database privileges).
-
-    Examples:
-      tpcds-util schema create                    # Use current user's schema
-      tpcds-util schema create --schema TPCDSV1  # Use specific schema (needs privileges)
-    """
-    schema_path = Path(schema_file) if schema_file else None
-
-    if db_manager.create_schema(schema_path, schema):
-        console.print("✅ Schema created successfully", style="green")
-    else:
-        console.print("❌ Schema creation failed", style="red")
-
-
-@schema.command("drop")
-@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
-@click.option(
-    "--schema",
-    help="Target schema name (overrides config). Requires DROP [ANY] TABLE privileges.",
-)
-def schema_drop(confirm, schema):
-    """Drop TPC-DS tables (not the schema itself).
-
-    Drops all TPC-DS tables from your current user's schema by default.
-    Use --schema to target a different schema (requires database privileges).
-
-    Note: This only removes TPC-DS tables, not the Oracle schema/user itself.
-
-    Examples:
-      tpcds-util schema drop                      # Drop tables from current user's schema
-      tpcds-util schema drop --schema TPCDSV1    # Drop tables from specific schema (needs privileges)
-    """
-    if db_manager.drop_schema(confirm, schema):
-        console.print("✅ TPC-DS tables dropped successfully", style="green")
-    else:
-        console.print("❌ TPC-DS tables drop failed", style="red")
-
-
-@schema.group()
-def user():
-    """Oracle user/schema management operations."""
-    pass
-
-
-@user.command("create")
-@click.argument("username")
-@click.option(
-    "--password", help="Password for the new user (will prompt if not provided)"
-)
-@click.option(
-    "--tablespace",
-    default="UNLIMITED",
-    help="Tablespace privileges (default: UNLIMITED)",
-)
-def user_create(username, password, tablespace):
-    """Create a new Oracle user/schema.
-
-    Creates a new Oracle user with CONNECT, RESOURCE privileges and tablespace access.
-    Requires DBA privileges or CREATE USER system privilege.
-
-    Examples:
-      tpcds-util schema user create sales              # Creates 'sales' user (prompts for password)
-      tpcds-util schema user create sales --password mypass123  # Creates with specified password
-    """
-    if not password:
-        password = click.prompt(f"Password for user '{username}'", hide_input=True)
-
-    if db_manager.create_user(username, password, tablespace):
-        console.print(f"✅ User '{username}' created successfully", style="green")
-    else:
-        console.print(f"❌ Failed to create user '{username}'", style="red")
-
-
-@user.command("restrict")
-@click.argument("username")
-def user_restrict(username):
-    """Restrict a user by removing dangerous system privileges.
-
-    Removes system privileges like CREATE TABLE, CREATE INDEX, etc. but cannot
-    prevent DML operations (INSERT/UPDATE/DELETE) on tables the user owns.
-    This reduces the damage scope for AI/MCP server usage.
-
-    Note: Oracle table owners always retain full DML access to their own tables.
-
-    Examples:
-      tpcds-util schema user restrict sales    # Remove dangerous privileges from sales user
-    """
-    if db_manager.restrict_user_privileges(username):
-        console.print(f"✅ User '{username}' privileges restricted", style="green")
-        console.print("   Removed dangerous system privileges", style="dim")
-        console.print(
-            "   User can still modify their own tables (Oracle limitation)", style="dim"
-        )
-    else:
-        console.print(
-            f"❌ Failed to restrict user '{username}' privileges", style="red"
-        )
-
-
-@schema.command("copy")
-@click.argument("source_schema")
-@click.argument("target_schema")
-@click.option(
-    "--tables",
-    help="Comma-separated list of tables to copy (copies all TPC-DS tables if not specified)",
-)
-@click.option(
-    "--structure-only", is_flag=True, help="Copy table structure only, no data"
-)
-def schema_copy(source_schema, target_schema, tables, structure_only):
-    """Copy tables from one schema to another.
-
-    Copies TPC-DS tables (or specified tables) from source schema to target schema.
-    Target schema/user must already exist.
-
-    Examples:
-      tpcds-util schema copy SYSTEM sales                    # Copy all TPC-DS tables from SYSTEM to sales
-      tpcds-util schema copy SYSTEM sales --tables store_sales,web_sales,catalog_sales  # Copy specific tables
-      tpcds-util schema copy SYSTEM sales --structure-only   # Copy table structures only (no data)
-    """
-    # By default, copy data unless --structure-only is specified
-    include_data = not structure_only
-
-    table_list = None
-    if tables:
-        table_list = [t.strip() for t in tables.split(",")]
-
-    if db_manager.copy_schema(source_schema, target_schema, table_list, include_data):
-        action = "structure" if structure_only else "tables and data"
-        console.print(
-            f"✅ Successfully copied {action} from '{source_schema}' to '{target_schema}'",
-            style="green",
-        )
-    else:
-        console.print(
-            f"❌ Failed to copy from '{source_schema}' to '{target_schema}'",
-            style="red",
-        )
-
-
-@cli.group()
 def generate():
     """Data generation operations."""
     pass
@@ -351,9 +195,9 @@ def generate_data(scale, output_dir, parallel):
     generator = DataGenerator()
 
     if generator.generate_data(scale, output_dir, parallel):
-        console.print("✅ Data generation completed", style="green")
+        console.print("Data generation completed", style="green")
     else:
-        console.print("❌ Data generation failed", style="red")
+        console.print("Data generation failed", style="red")
 
 
 @cli.group()
@@ -370,25 +214,32 @@ def load():
 @click.option("--table", help="Load specific table only")
 @click.option(
     "--schema",
-    help="Target schema name (overrides config). Requires INSERT privileges.",
+    help="Target schema name (overrides config). Must already exist with proper privileges.",
 )
-def load_data(data_dir, parallel, table, schema):
+@click.option(
+    "--schema-file",
+    type=click.Path(exists=True),
+    help="Path to SQL file for creating tables (auto-creates tables before loading)",
+)
+def load_data(data_dir, parallel, table, schema, schema_file):
     """Load synthetic data into TPC-DS tables.
 
-    Loads data into your current user's schema by default.
-    Use --schema to target a different schema (requires database privileges).
+    Automatically creates tables before loading if --schema-file is provided.
+    Loads data into configured schema or current user's schema by default.
 
     Examples:
-      tpcds-util load data                        # Load into current user's schema
-      tpcds-util load data --schema TPCDSV1      # Load into specific schema (needs privileges)
-      tpcds-util load data --table store_sales   # Load specific table only
+      tpcds-util load data --schema-file schema.sql  # Create tables and load
+      tpcds-util load data                            # Load into existing tables
+      tpcds-util load data --table store_sales        # Load specific table only
     """
     loader = DataLoader()
 
-    if loader.load_data(data_dir, parallel, table, schema):
-        console.print("✅ Data loading completed", style="green")
+    schema_path = Path(schema_file) if schema_file else None
+
+    if loader.load_data(data_dir, parallel, table, schema, schema_path):
+        console.print("Data loading completed", style="green")
     else:
-        console.print("❌ Data loading failed", style="red")
+        console.print("Data loading failed", style="red")
 
 
 @load.command("truncate")
@@ -406,9 +257,9 @@ def truncate_data(confirm, schema):
     loader = DataLoader()
 
     if loader.truncate_tables(confirm, schema):
-        console.print("✅ Data truncation completed", style="green")
+        console.print("Data truncation completed", style="green")
     else:
-        console.print("❌ Data truncation failed", style="red")
+        console.print("Data truncation failed", style="red")
 
 
 @cli.command("status")
@@ -420,22 +271,22 @@ def status():
     # Configuration status
     cfg = config_manager.load()
     if cfg.database.username:
-        console.print("✅ Configuration: Complete", style="green")
+        console.print("Configuration: Complete", style="green")
     else:
-        console.print("⚠️  Configuration: Incomplete", style="yellow")
+        console.print("Configuration: Incomplete", style="yellow")
 
     # Database connection
     if db_manager.test_connection():
-        console.print("✅ Database: Connected", style="green")
+        console.print("Database: Connected", style="green")
     else:
-        console.print("❌ Database: Connection failed", style="red")
+        console.print("Database: Connection failed", style="red")
 
     # Schema status
     tables = db_manager.get_table_info()
     if tables:
-        console.print(f"✅ Schema: {len(tables)} tables found", style="green")
+        console.print(f"Schema: {len(tables)} tables found", style="green")
     else:
-        console.print("⚠️  Schema: No tables found", style="yellow")
+        console.print("Schema: No tables found", style="yellow")
 
 
 def main():

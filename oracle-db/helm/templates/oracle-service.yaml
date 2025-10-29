@@ -1,4 +1,3 @@
-{{- if .Values.installation.installDB }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,13 +12,6 @@ spec:
       targetPort: oracle
       protocol: TCP
       name: oracle
-    {{- if .Values.oracle.monitoring.enabled }}
-    - port: {{ .Values.oracle.monitoring.exporterPort }}
-      targetPort: metrics
-      protocol: TCP
-      name: metrics
-    {{- end }}
   selector:
     {{- include "oracle-db.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: database
-{{- end }}
