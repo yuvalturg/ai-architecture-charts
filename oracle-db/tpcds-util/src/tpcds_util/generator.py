@@ -36,7 +36,7 @@ class DataGenerator:
 
         console.print("🔬 Generating synthetic TPC-DS compliant data...", style="cyan")
         console.print(
-            "📋 This data is license-free and safe for enterprise use", style="green"
+            "This data is license-free and safe for enterprise use", style="green"
         )
         return create_synthetic_data(scale=scale, output_dir=output_dir)
 

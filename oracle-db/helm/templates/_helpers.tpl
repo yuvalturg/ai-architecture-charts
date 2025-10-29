@@ -60,38 +60,3 @@ Create the name of the service account to use for Oracle DB
 {{- default "default" .Values.oracle.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/*
-Create the name of the service account to use for TPC-DS job
-*/}}
-{{- define "oracle-db.jobServiceAccountName" -}}
-{{- if .Values.tpcds.serviceAccount.create }}
-{{- default (printf "%s-job" (include "oracle-db.fullname" .)) .Values.tpcds.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.tpcds.serviceAccount.name }}
-{{- end }}
-{{- end }}
-
-{{/*
-Oracle database connection string
-*/}}
-{{- define "oracle-db.connectionString" -}}
-{{- printf "%s:%s/%s" .Values.tpcds.database.host .Values.tpcds.database.port .Values.tpcds.database.serviceName }}
-{{- end }}
-
-{{/*
-Generate Oracle password if not provided
-Uses existing secret if available, otherwise generates a stable password
-*/}}
-{{- define "oracle-db.oraclePassword" -}}
-{{- if .Values.oracle.secret.password }}
-{{- .Values.oracle.secret.password }}
-{{- else }}
-{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace (include "oracle-db.fullname" .) }}
-{{- if $existingSecret }}
-{{- index $existingSecret.data "password" | b64dec }}
-{{- else }}
-{{- randAlphaNum 16 }}
-{{- end }}
-{{- end }}
-{{- end }}

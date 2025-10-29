@@ -1877,7 +1877,7 @@ class SyntheticDataGenerator:
             # Count total files generated
             total_files = len(list(output_path.glob("*.dat")))
             console.print(
-                f"✅ Generated {total_files} synthetic data files", style="green"
+                f"Generated {total_files} synthetic data files", style="green"
             )
 
     def _write_table_to_file(
@@ -1912,20 +1912,20 @@ def create_synthetic_data(scale: int = 1, output_dir: str = "./synthetic_data") 
 
     if not HAS_FAKER:
         console.print(
-            "⚠️  Faker library not found. Installing for better synthetic data...",
+            "Faker library not found. Installing for better synthetic data...",
             style="yellow",
         )
         try:
             import subprocess
 
             subprocess.run(["pip", "install", "faker"], check=True, capture_output=True)
-            console.print("✅ Faker installed successfully", style="green")
+            console.print("Faker installed successfully", style="green")
             # Re-import after installation
             globals()["Faker"] = __import__("faker").Faker
             globals()["HAS_FAKER"] = True
         except Exception as e:
             console.print(
-                f"⚠️  Could not install Faker: {e}. Using basic synthetic data.",
+                f"Could not install Faker: {e}. Using basic synthetic data.",
                 style="yellow",
             )
 
@@ -1968,14 +1968,14 @@ def create_synthetic_data(scale: int = 1, output_dir: str = "./synthetic_data") 
             f"📁 Files written to: {Path(output_dir).absolute()}", style="cyan"
         )
         console.print(
-            "📋 This data is synthetic and license-free for enterprise use",
+            "This data is synthetic and license-free for enterprise use",
             style="green",
         )
 
         return True
 
     except Exception as e:
-        console.print(f"❌ Error generating synthetic data: {e}", style="red")
+        console.print(f"Error generating synthetic data: {e}", style="red")
         return False
 
 
