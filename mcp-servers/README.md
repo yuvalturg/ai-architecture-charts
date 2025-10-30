@@ -251,22 +251,20 @@ The Oracle SQLcl MCP server integrates seamlessly with the oracle-db Helm chart 
 mcp-servers:
   oracle-sqlcl:
     enabled: true
-    oracleSecret: oracle-db-user-sales-reader  # Reference to Oracle user secret
-    env:
-      ORACLE_CONN_NAME: oracle_connection
+    proxyMode: streamable-http  # Use streamable-http for Toolhive
+    oracleUserSecrets:           # List of Oracle user secrets to mount
+      - oracle-db-user-sales
+      - oracle-db-user-sales-reader
 ```
 
 **How it works:**
 1. The oracle-db Helm chart creates per-user secrets (e.g., `oracle-db-user-sales-reader`)
 2. Each secret contains: `username`, `password`, `host`, `port`, `serviceName`
-3. The mcp-servers template automatically maps these to environment variables:
-   - `ORACLE_USER` ← username
-   - `ORACLE_PWD` ← password
-   - `ORACLE_HOST` ← host
-   - `ORACLE_PORT` ← port
-   - `ORACLE_SERVICE` ← serviceName
+3. The mcp-servers template mounts all specified secrets to `/user-secrets/<secret-name>`
+4. The startup script automatically creates saved connections for each mounted user
+5. Each connection uses the username as the connection alias
 
-**No manual mapping required** - just specify the secret name!
+**No manual configuration required** - just list the secret names!
 
 ## Security
 ### Credential Management

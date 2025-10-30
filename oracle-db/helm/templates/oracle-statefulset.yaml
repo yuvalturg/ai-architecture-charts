@@ -71,6 +71,13 @@ spec:
                 secretKeyRef:
                   name: {{ include "oracle-db.fullname" . }}-user-system
                   key: port
+            {{- if .Values.oracle.users }}
+            # User management script environment variables
+            - name: ORACLE_HOST
+              value: "localhost"
+            - name: SECRETS_DIR
+              value: "/user-secrets"
+            {{- end }}
           ports:
             - name: oracle
               containerPort: {{ .Values.oracle.service.port }}
@@ -107,79 +114,28 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.oracle.volumeMounts }}
           volumeMounts:
+            {{- with .Values.oracle.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
-        
-        {{/* User Management Sidecar */}}
-        {{- if .Values.oracle.users }}
-        - name: user-manager
-          image: "{{ .Values.oracle.image.repository }}:{{ .Values.oracle.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.oracle.image.pullPolicy }}
-          command: ["/bin/bash", "/scripts/manage-users.sh"]
-          env:
-            - name: ADMIN_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "oracle-db.fullname" . }}-user-system
-                  key: username
-            - name: ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "oracle-db.fullname" . }}-user-system
-                  key: password
-            - name: ORACLE_SERVICE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "oracle-db.fullname" . }}-user-system
-                  key: serviceName
-            - name: ORACLE_HOST
-              value: "localhost"
-            - name: ORACLE_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "oracle-db.fullname" . }}-user-system
-                  key: port
-            - name: SECRETS_DIR
-              value: "/user-secrets"
-          volumeMounts:
-            - name: user-scripts
-              mountPath: /scripts
+            {{- end }}
+            {{- if .Values.oracle.users }}
+            - name: create-users
+              mountPath: /opt/oracle/scripts/startup/01-create-users.sh
+              subPath: create-users.sh
               readOnly: true
             {{- range .Values.oracle.users }}
             - name: user-secret-{{ .name | replace "_" "-" }}
               mountPath: /user-secrets/{{ .name }}
               readOnly: true
             {{- end }}
-          readinessProbe:
-            exec:
-              command:
-                - test
-                - -f
-                - /tmp/users-ready
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            failureThreshold: 120
-          resources:
-            {{- if .Values.oracle.userManagement.resources }}
-            {{- toYaml .Values.oracle.userManagement.resources | nindent 12 }}
-            {{- else }}
-            requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
-              memory: "128Mi"
-              cpu: "100m"
             {{- end }}
-        {{- end }}
 
       {{/* Volumes */}}
       volumes:
       {{- if .Values.oracle.users }}
-        - name: user-scripts
+        - name: create-users
           configMap:
-            name: {{ include "oracle-db.fullname" . }}-user-scripts
+            name: {{ include "oracle-db.fullname" . }}-create-users
             defaultMode: 0755
         {{- range .Values.oracle.users }}
         - name: user-secret-{{ .name | replace "_" "-" }}

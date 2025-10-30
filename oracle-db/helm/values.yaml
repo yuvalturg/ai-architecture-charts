@@ -132,6 +132,11 @@ tpcds:
   # This user must have mode: rw and will own the TPC-DS tables
   user: sales
 
+  # List of users to grant SELECT privileges after data loading
+  # These should be read-only users (mode: ro) that need access to TPC-DS tables
+  grantUsers:
+    - sales_reader
+
   # TPC-DS Configuration
   scaleFactor: 1
   parallel: 2

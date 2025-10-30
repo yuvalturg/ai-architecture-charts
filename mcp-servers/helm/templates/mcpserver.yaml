@@ -39,45 +39,41 @@ spec:
     value: {{ $envValue | default "" | quote }}
   {{- end }}
   {{- end }}
-  {{- with $server.oracleSecret }}
-  secrets:
-    - name: {{ . }}
-      key: username
-      targetEnvName: ORACLE_USER
-    - name: {{ . }}
-      key: password
-      targetEnvName: ORACLE_PWD
-    - name: {{ . }}
-      key: host
-      targetEnvName: ORACLE_HOST
-    - name: {{ . }}
-      key: port
-      targetEnvName: ORACLE_PORT
-    - name: {{ . }}
-      key: serviceName
-      targetEnvName: ORACLE_SERVICE
-  {{- end }}
-  {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources }}
+  {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources $server.oracleUserSecrets }}
   podTemplateSpec:
     spec:
       {{- with $server.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $server.volumes }}
+      {{- if or $server.volumes $server.oracleUserSecrets }}
       volumes:
+        {{- with $server.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $server.oracleUserSecrets }}
+        - name: {{ . }}
+          secret:
+            secretName: {{ . }}
+        {{- end }}
       {{- end }}
-      {{- if or $server.securityContext $server.volumeMounts $server.resources }}
+      {{- if or $server.securityContext $server.volumeMounts $server.resources $server.oracleUserSecrets }}
       containers:
       - name: mcp
         {{- with $server.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with $server.volumeMounts }}
+        {{- if or $server.volumeMounts $server.oracleUserSecrets }}
         volumeMounts:
+          {{- with $server.volumeMounts }}
           {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- range $server.oracleUserSecrets }}
+          - name: {{ . }}
+            mountPath: /user-secrets/{{ . }}
+            readOnly: true
+          {{- end }}
         {{- end }}
         {{- with $server.resources }}
         resources:

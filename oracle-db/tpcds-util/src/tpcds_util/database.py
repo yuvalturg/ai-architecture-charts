@@ -209,6 +209,7 @@ class DatabaseManager:
                 if stmt.strip() and not stmt.strip().startswith("--")
             ]
 
+            error_count = 0
             with self.get_connection() as conn:
                 with conn.cursor() as cursor:
                     with Progress(
@@ -232,7 +233,8 @@ class DatabaseManager:
                                     cursor.execute(stmt)
                                     progress.advance(task)
                                 except oracledb.Error as e:
-                                    # Log the error but continue with next statement
+                                    # Log the error and track failure
+                                    error_count += 1
                                     console.print(
                                         f"Error in statement {i + 1}: {str(e)[:150]}",
                                         style="red",
@@ -245,6 +247,13 @@ class DatabaseManager:
                                     progress.advance(task)
 
                         conn.commit()
+
+            if error_count > 0:
+                console.print(
+                    f"Failed to execute {sql_file.name}: {error_count} statement(s) failed",
+                    style="red",
+                )
+                return False
 
             console.print(f"Successfully executed {sql_file.name}", style="green")
             return True
