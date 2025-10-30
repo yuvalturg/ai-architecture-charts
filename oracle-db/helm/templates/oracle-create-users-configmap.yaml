@@ -1,0 +1,16 @@
+{{/*
+Oracle User Creation Scripts ConfigMap
+Contains scripts for creating database users from Kubernetes secrets
+*/}}
+{{- if .Values.oracle.users }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oracle-db.fullname" . }}-create-users
+  labels:
+    {{- include "oracle-db.labels" . | nindent 4 }}
+    app.kubernetes.io/component: user-management
+data:
+  create-users.sh: |
+{{ .Files.Get "files/create-users.sh" | indent 4 }}
+{{- end }}

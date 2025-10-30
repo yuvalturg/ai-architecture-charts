@@ -142,6 +142,46 @@ def db_test():
         sys.exit(1)
 
 
+@db.command("grant")
+@click.option("--user", required=True, help="Username to grant SELECT privileges to")
+def db_grant(user):
+    """Grant SELECT on all tables in current schema to a user."""
+    console.print(f"Granting SELECT on all tables to {user}...")
+
+    try:
+        grant_count = 0
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Get all tables in current schema
+                cursor.execute("SELECT table_name FROM user_tables")
+                tables = cursor.fetchall()
+
+                if not tables:
+                    console.print("No tables found in current schema", style="yellow")
+                    return
+
+                # Grant SELECT on each table
+                for (table_name,) in tables:
+                    try:
+                        cursor.execute(f"GRANT SELECT ON {table_name} TO {user}")
+                        grant_count += 1
+                    except Exception as e:
+                        console.print(
+                            f"Warning: Could not grant on {table_name}: {e}",
+                            style="yellow",
+                        )
+
+                conn.commit()
+
+        console.print(
+            f"Successfully granted SELECT on {grant_count} tables to {user}",
+            style="green",
+        )
+    except Exception as e:
+        console.print(f"Failed to grant privileges: {e}", style="red")
+        sys.exit(1)
+
+
 @db.command("info")
 @click.option("--schema", help="Target schema name (overrides config)")
 def db_info(schema):
@@ -198,6 +238,7 @@ def generate_data(scale, output_dir, parallel):
         console.print("Data generation completed", style="green")
     else:
         console.print("Data generation failed", style="red")
+        sys.exit(1)
 
 
 @cli.group()
@@ -240,6 +281,7 @@ def load_data(data_dir, parallel, table, schema, schema_file):
         console.print("Data loading completed", style="green")
     else:
         console.print("Data loading failed", style="red")
+        sys.exit(1)
 
 
 @load.command("truncate")
@@ -260,6 +302,7 @@ def truncate_data(confirm, schema):
         console.print("Data truncation completed", style="green")
     else:
         console.print("Data truncation failed", style="red")
+        sys.exit(1)
 
 
 @cli.command("status")

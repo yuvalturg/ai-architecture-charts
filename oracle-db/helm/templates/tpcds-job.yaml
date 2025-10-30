@@ -56,8 +56,8 @@ spec:
             fi
 
             echo "[INFO] Waiting for Oracle and user creation... (${elapsed}s elapsed)"
-            sleep 10
-            elapsed=$((elapsed + 10))
+            sleep 15
+            elapsed=$((elapsed + 15))
           done
 
           echo "[ERROR] Oracle database not ready after ${MAX_WAIT}s"
@@ -165,6 +165,18 @@ spec:
           echo "[INFO] Table statistics for ${TARGET_SCHEMA} schema:"
           tpcds-util db info
           echo ""
+
+          # Grant SELECT on all tables to read-only users
+          {{- if .Values.tpcds.grantUsers }}
+          echo "[INFO] Granting SELECT on all tables to read-only users..."
+          {{- range .Values.tpcds.grantUsers }}
+          if ! tpcds-util db grant --user "{{ . }}"; then
+            echo "[ERROR] Failed to grant privileges to {{ . }}"
+            exit 1
+          fi
+          {{- end }}
+          echo ""
+          {{- end }}
 
           echo "[INFO] TPC-DS data population completed successfully"
           echo "[INFO] All 25 TPC-DS tables loaded into ${TARGET_SCHEMA} schema"

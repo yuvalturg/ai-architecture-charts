@@ -19,13 +19,13 @@ oracle-db/
 │   ├── Chart.yaml                      # Chart metadata
 │   ├── values.yaml                     # Configuration options
 │   ├── files/
-│   │   └── manage-users.sh             # User management script
+│   │   └── create-users.sh             # User creation startup script
 │   └── templates/                      # Kubernetes manifests
 │       ├── _helpers.tpl                # Template helpers
-│       ├── oracle-statefulset.yaml     # Oracle database + user-manager sidecar
+│       ├── oracle-statefulset.yaml     # Oracle database StatefulSet
 │       ├── oracle-service.yaml         # Database service
 │       ├── oracle-user-secrets.yaml    # Per-user credentials
-│       ├── oracle-user-scripts-configmap.yaml  # User management ConfigMap
+│       ├── oracle-create-users-configmap.yaml  # User creation ConfigMap
 │       ├── oracle-serviceaccount.yaml  # Service account
 │       ├── oracle-scc.yaml             # Security constraints
 │       └── tpcds-job.yaml              # TPC-DS data loading job
@@ -140,6 +140,8 @@ oracle:
 tpcds:
   enabled: true           # Enable TPC-DS data loading
   user: sales            # Which user loads the data (must have mode: rw)
+  grantUsers:            # Users to grant SELECT after loading
+    - sales_reader
   scaleFactor: 1         # Data volume (1 = ~1GB)
   parallel: 2            # Parallel loading workers
 
@@ -153,19 +155,20 @@ tpcds:
 ### Component Flow
 
 1. **Oracle StatefulSet**
-   - Main oracle-db container runs Oracle 23ai
-   - User-manager sidecar creates database users after Oracle is ready
+   - Oracle 23ai container starts and initializes database
+   - Startup script (`/opt/oracle/scripts/startup/01-create-users.sh`) automatically creates users after Oracle is ready
 
 2. **User Creation Process**
-   - Wait for Oracle database to be ready
    - Create schema owners (where username == schema)
-   - Create alias users (where username != schema) with permissions
+   - Create alias users (where username != schema)
+   - Note: Permissions are granted later by TPC-DS job after tables exist
 
 3. **TPC-DS Data Loading** (if enabled)
    - Wait for Oracle + user creation to complete
    - Configure tpcds-util with sales user credentials
    - Generate synthetic TPC-DS data
    - Create tables and load data into sales schema
+   - Grant SELECT permissions to read-only users (from grantUsers list)
 
 ### Environment Variables
 
@@ -188,11 +191,8 @@ helm status oracle-db -n oracle-db
 # Watch pods
 oc get pods -n oracle-db -w
 
-# Check Oracle logs
-oc logs -f oracle-db-0 -c oracle-db -n oracle-db
-
-# Check user management
-oc logs -f oracle-db-0 -c user-manager -n oracle-db
+# Check Oracle logs (includes user creation from startup script)
+oc logs -f oracle-db-0 -n oracle-db
 
 # Check TPC-DS data loading
 oc logs -f job/oracle-db-tpcds-populate -n oracle-db
@@ -300,11 +300,8 @@ tpcds:
 
 **Oracle Pod Not Ready**
 ```bash
-# Check Oracle container logs
-oc logs oracle-db-0 -c oracle-db -n oracle-db
-
-# Check user-manager sidecar logs
-oc logs oracle-db-0 -c user-manager -n oracle-db
+# Check Oracle container logs (includes user creation from startup script)
+oc logs oracle-db-0 -n oracle-db
 
 # Increase readiness probe timeout
 helm upgrade oracle-db helm/ --set oracle.probes.readiness.failureThreshold=30
@@ -312,8 +309,8 @@ helm upgrade oracle-db helm/ --set oracle.probes.readiness.failureThreshold=30
 
 **User Creation Fails**
 ```bash
-# Check user-manager sidecar logs
-oc logs oracle-db-0 -c user-manager -n oracle-db
+# Check Oracle container logs for user creation output
+oc logs oracle-db-0 -n oracle-db | grep -A 10 "Oracle User Creation"
 
 # Verify secrets exist
 oc get secrets -n oracle-db | grep oracle-db-user
@@ -383,24 +380,9 @@ helm upgrade oracle-db helm/ --set tpcds.enabled=false
 - Adjust `tpcds.job.resources` based on cluster capacity
 - Use appropriate `scaleFactor` for your testing needs (1 = ~1GB)
 
-## 🔗 Integration with MCP Servers
+## 🔗 Integration with Other Services
 
-The oracle-sqlcl MCP server can connect using the auto-generated secrets:
-
-```yaml
-# In mcp-servers/helm/values.yaml
-mcpServers:
-  oracle-sqlcl:
-    enabled: true
-    oracleSecret: oracle-db-user-sales-reader  # Read-only access
-```
-
-This automatically maps:
-- `ORACLE_USER` → username
-- `ORACLE_PWD` → password
-- `ORACLE_HOST` → host
-- `ORACLE_PORT` → port
-- `ORACLE_SERVICE` → serviceName
+The auto-generated user secrets (e.g., `oracle-db-user-sales-reader`) can be consumed by other Kubernetes workloads such as MCP servers, applications, or data processing jobs. Each secret contains connection details including username, password, host, port, and serviceName.
 
 ---
 

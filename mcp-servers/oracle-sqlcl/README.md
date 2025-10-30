@@ -50,6 +50,7 @@ See `../README.md` for complete deployment instructions using the MCPServer appr
 ### **Oracle Database**
 - Oracle database accessible from OpenShift cluster
 - Database credentials (username, password, connection string)
+- **Recommended**: Deploy using the `oracle-db` Helm chart which automatically creates user secrets
 
 ## 📦 **Build and Push Container Image**
 
@@ -63,6 +64,28 @@ docker push <your_repo>/oracle-sqlcl-mcp:<tag>
 For installation and configuration, see the Helm chart documentation:
 
 - oracle-sqlcl/helm/README.md
+
+### **Integration with oracle-db Helm Chart**
+
+If you've deployed Oracle database using the `oracle-db` Helm chart, you can easily connect the MCP server to multiple users:
+
+```yaml
+# In mcp-servers/helm/values.yaml
+mcp-servers:
+  oracle-sqlcl:
+    enabled: true
+    proxyMode: streamable-http  # Use streamable-http for Toolhive
+    oracleUserSecrets:           # List of user secrets to mount
+      - oracle-db-user-sales
+      - oracle-db-user-sales-reader
+```
+
+The MCP server will automatically:
+- Mount all specified user secrets to `/user-secrets/<secret-name>`
+- Create saved connections for each user on startup
+- Retry connection attempts for up to 30 minutes (useful during database initialization)
+
+Each secret contains: `username`, `password`, `host`, `port`, and `serviceName`.
 
 ## 🧪 **Test with MCP Inspector**
 
@@ -127,7 +150,7 @@ Notes:
   - Writable Java temp dir at `/sqlcl-home/tmp`
   - Profile scripts are ignored to avoid banner/interactive noise
 
-- On startup, if `ORACLE_USER`, `ORACLE_PASSWORD`, and `ORACLE_CONNECTION_STRING` are set, a saved connection is created with alias `ORACLE_CONN_NAME` (default: `oracle_connection`).
+- On startup, the script scans `/user-secrets/` for mounted user secrets and creates a saved connection for each user found. Each connection uses the username as the connection alias.
 
 ## 🔍 **Troubleshooting**
 

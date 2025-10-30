@@ -6,7 +6,7 @@ mcp-servers:
     # - auto: Use MCPServer if Toolhive is available, otherwise use Deployment (default)
     # - mcpserver: Always use MCPServer (requires Toolhive)
     # - deployment: Always use Deployment (ignore Toolhive)
-    deploymentMode: auto
+    deploymentMode: deployment
     image:
       repository: quay.io/rh-ai-quickstart/mcp-weather
       tag: ""  # Defaults to .Chart.Version
@@ -27,9 +27,11 @@ mcp-servers:
     permissionProfile:
       name: network
       type: builtin
-    oracleSecret: oracle-db-user-sales-reader
+    # List of Oracle user secrets to mount
+    # Each secret will be mounted at /user-secrets/<secret-name>
+    oracleUserSecrets:
+      - oracle-db-user-sales-reader
     env:
-      ORACLE_CONN_NAME: oracle_connection
       JAVA_TOOL_OPTIONS: "-Djava.io.tmpdir=/sqlcl-home/tmp"
       _JAVA_OPTIONS: ""
       HOME: "/sqlcl-home"

@@ -6,19 +6,6 @@ echo "ORACLE_HOME: $ORACLE_HOME"
 echo "JAVA_HOME: $JAVA_HOME"
 echo "PATH: $PATH"
 
-# Validate required Oracle environment variables
-if [ -z "$ORACLE_USER" ] || [ -z "$ORACLE_PWD" ] || [ -z "$ORACLE_HOST" ] || [ -z "$ORACLE_PORT" ] || [ -z "$ORACLE_SERVICE" ]; then
-  echo "ERROR: Missing required Oracle connection environment variables"
-  echo "Required: ORACLE_USER, ORACLE_PWD, ORACLE_HOST, ORACLE_PORT, ORACLE_SERVICE"
-  echo "Current values:"
-  echo "  ORACLE_USER: ${ORACLE_USER:-<not set>}"
-  echo "  ORACLE_PWD: ${ORACLE_PWD:+<set>}"
-  echo "  ORACLE_HOST: ${ORACLE_HOST:-<not set>}"
-  echo "  ORACLE_PORT: ${ORACLE_PORT:-<not set>}"
-  echo "  ORACLE_SERVICE: ${ORACLE_SERVICE:-<not set>}"
-  exit 1
-fi
-
 echo "Starting MCP Server for Toolhive proxy access..."
 
 # Avoid JVM option injection issues
@@ -39,43 +26,60 @@ mkdir -p /sqlcl-home/empty || true
 export SQLPATH=/sqlcl-home/empty
 cd /sqlcl-home || true
 
-# Build connection string and test connection
-ORACLE_CONNECTION_STRING="${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}"
-echo "Oracle Connection: ${ORACLE_USER}@${ORACLE_CONNECTION_STRING}"
+# Create saved connection for a user (retry for 30 minutes)
+create_user_connection() {
+  local user="$1"
+  local pwd="$2"
+  local host="$3"
+  local port="$4"
+  local service="$5"
+  local conn="${host}:${port}/${service}"
 
-# Wait for database connection to be available (retry for 30 minutes)
-echo "Waiting for database connection to be available..."
-MAX_RETRIES=360  # 30 minutes with 5-second intervals
-RETRY_COUNT=0
-CONNECTION_ALIAS=${ORACLE_CONN_NAME:-oracle_connection}
+  echo "Creating saved connection for: ${user}@${conn}"
 
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-  echo "Testing connection to Oracle (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
-  if /opt/oracle/sqlcl/bin/sql -S -L ${ORACLE_USER}/${ORACLE_PWD}@${ORACLE_CONNECTION_STRING} <<< "exit" 2>&1; then
-    echo "Successfully connected to Oracle database!"
+  local max_retries=120
+  local retry_count=0
 
-    # Connection test successful, now try to create saved connection
-    echo "Creating saved connection: $CONNECTION_ALIAS"
-    if echo "connect -savepwd -save $CONNECTION_ALIAS ${ORACLE_USER}/${ORACLE_PWD}@${ORACLE_CONNECTION_STRING}" | /opt/oracle/sqlcl/bin/sql /NOLOG 2>&1; then
-      echo "Successfully created saved connection: $CONNECTION_ALIAS"
-      break
-    else
-      echo "WARNING: Failed to create saved connection. Retrying in 5 seconds..."
+  while [ $retry_count -lt $max_retries ]; do
+    echo "Testing connection (attempt $((retry_count + 1))/$max_retries)..."
+    if /opt/oracle/sqlcl/bin/sql -S -L ${user}/${pwd}@${conn} <<< "exit" >/dev/null 2>&1; then
+      echo "Successfully connected to Oracle database!"
+
+      if echo "connect -savepwd -save ${user} ${user}/${pwd}@${conn}" | /opt/oracle/sqlcl/bin/sql /NOLOG >/dev/null 2>&1; then
+        echo "Successfully created saved connection: ${user}"
+        return 0
+      else
+        echo "WARNING: Failed to create saved connection. Retrying in 15 seconds..."
+      fi
     fi
-  else
-    echo "Connection test failed. Retrying in 5 seconds..."
-  fi
 
-  RETRY_COUNT=$((RETRY_COUNT + 1))
-  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-    sleep 5
-  fi
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -lt $max_retries ]; then
+      sleep 15
+    fi
+  done
+
+  echo "ERROR: Failed to connect to Oracle and create saved connection for ${user} after 30 minutes"
+  return 1
+}
+
+# Create saved connections for all mounted user secrets
+echo "Creating saved connections for all users..."
+for secret_dir in /user-secrets/*; do
+  [ -d "$secret_dir" ] || continue
+
+  user=$(cat "$secret_dir/username" 2>/dev/null) || continue
+  pwd=$(cat "$secret_dir/password" 2>/dev/null) || continue
+  host=$(cat "$secret_dir/host" 2>/dev/null) || continue
+  port=$(cat "$secret_dir/port" 2>/dev/null) || continue
+  service=$(cat "$secret_dir/serviceName" 2>/dev/null) || continue
+
+  create_user_connection "$user" "$pwd" "$host" "$port" "$service" || exit 1
+  echo ""
 done
 
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-  echo "ERROR: Failed to connect to Oracle and create saved connection after 30 minutes"
-  exit 1
-fi
+echo "All saved connections created successfully"
+echo ""
 
 # Start SQLcl MCP
 exec /opt/oracle/sqlcl/bin/sql -mcp
