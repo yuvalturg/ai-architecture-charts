@@ -2,8 +2,8 @@ apiVersion: v2
 name: mcp-servers
 description: A Helm chart for deploying MCP (Model Context Protocol) servers using the Toolhive operator
 type: application
-version: 0.5.7
-appVersion: "0.5.7"
+version: 0.5.8
+appVersion: "0.5.8"
 
 keywords:
   - mcp
