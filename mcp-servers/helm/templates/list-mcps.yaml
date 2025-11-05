@@ -1,6 +1,6 @@
 {{- $mcps := include "mcp-servers.mergeMcpServers" . | fromJson }}
 {{- if .Values._debugListMcps }}
-{{- range $key, $model := $mcps }}
-MCP server: {{ $key }} ({{ $model.image }})
+{{- range $key, $server := $mcps }}
+MCP server: {{ $key }} ({{ $server.image.repository }}:{{ $server.image.tag | default $.Chart.Version }})
 {{- end }}
 {{- end }}

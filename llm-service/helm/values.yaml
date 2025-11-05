@@ -4,7 +4,16 @@ rawDeploymentMode: true
 # Device-specific configurations for tolerations and accelerators
 deviceConfigs:
   gpu:  # NVIDIA GPU configuration
-    image: quay.io/ecosystem-appeng/vllm:openai-v0.10.1
+    image: vllm/vllm-openai:v0.10.2
+    tolerations:
+      - key: nvidia.com/gpu
+        effect: NoSchedule
+        operator: Exists
+    recommendedAccelerators:
+      - nvidia.com/gpu
+    acceleratorType: nvidia.com/gpu
+  gpu-nightly-vllm:
+    image: vllm/vllm-openai:nightly
     tolerations:
       - key: nvidia.com/gpu
         effect: NoSchedule
@@ -238,6 +247,16 @@ models:
       - llama3_json
       - --max-model-len
       - "30544"
+
+  gpt-oss-20b:
+    id: openai/gpt-oss-20b
+    device: gpu-nightly-vllm
+    enabled: false
+    storageSize: 80Gi
+    args:
+      - --tool-call-parser
+      - openai
+      - --enable-auto-tool-choice
 
   qwen-2-5-vl-3b-instruct:
     id: Qwen/Qwen2.5-VL-3B-Instruct
