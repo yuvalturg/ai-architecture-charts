@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-echo "Starting Oracle SQLcl MCP Server..."
+echo "Starting Oracle SQLcl MCP HTTP Proxy..."
 echo "ORACLE_HOME: $ORACLE_HOME"
 echo "JAVA_HOME: $JAVA_HOME"
 echo "PATH: $PATH"
 
-echo "Starting MCP Server for Toolhive proxy access..."
+echo "Starting MCP HTTP Proxy (will spawn sql -mcp)..."
 
 # Avoid JVM option injection issues
 unset JAVA_TOOL_OPTIONS || true
@@ -81,5 +81,5 @@ done
 echo "All saved connections created successfully"
 echo ""
 
-# Start SQLcl MCP
-exec /opt/oracle/sqlcl/bin/sql -mcp
+# Start MCP HTTP Proxy (which will spawn sql -mcp)
+exec /usr/local/bin/mcp-proxy

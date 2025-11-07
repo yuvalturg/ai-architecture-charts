@@ -4,60 +4,40 @@ This Helm chart deploys MCP (Model Context Protocol) servers that provide extern
 
 ## Architecture Overview
 
-The mcp-servers chart supports **flexible deployment modes**:
-- **With Toolhive Operator** (recommended): Uses MCPServer CRDs with automated proxy management
-- **Without Toolhive**: Falls back to standard Kubernetes Deployments and Services
-- **Automatic Detection**: Chart automatically detects Toolhive availability and adapts
+The mcp-servers chart deploys MCP servers as standard Kubernetes Deployments:
+- **Standard Kubernetes Resources**: Uses Deployments and Services
+- **No Operator Dependencies**: Works in any Kubernetes cluster
+- **Built-in HTTP Support**: Oracle SQLcl includes native HTTP proxy
 
 ### Deployment Resources Created
 
-Depending on Toolhive availability and configuration, the chart creates:
-- **MCPServer Custom Resources**: When Toolhive is available (operator-managed)
-- **Deployments + Services**: When Toolhive is not available (standard Kubernetes resources)
-- **Secure Credential Management**: Integration with Kubernetes secrets
+The chart creates:
+- **Deployments**: Standard Kubernetes workloads
+- **Services**: HTTP endpoints for MCP clients
+- **Secret Mounts**: Secure credential management
 - **Resource Labels**: All resources tagged with `app.kubernetes.io/component: mcp-server` for easy discovery
 
 ### Key Components
 
-1. **Oracle SQLcl MCP**: Database interaction capabilities using Oracle's SQLcl
+1. **Oracle SQLcl MCP**: Database interaction capabilities using Oracle's SQLcl with built-in HTTP proxy
+   - Native streamable-http transport support
+   - No external proxy required
+   - Go-based HTTP server manages stdio communication with SQLcl
 2. **Weather MCP**: External weather API integration
 3. **Secure Secret Management**: Credentials sourced from Kubernetes secrets
-4. **Flexible Architecture**: Adapts to cluster capabilities automatically
+4. **Standard Kubernetes Deployments**: Simple, operator-free architecture
 
 ### Deployment Architecture
 
-This chart supports multiple deployment modes for maximum flexibility:
+Oracle SQLcl MCP uses a built-in Go HTTP proxy:
+- **SQLcl Process**: Runs `sql -mcp` with stdio transport
+- **Go HTTP Proxy**: Converts between HTTP (streamable-http) and stdio
+- **Multiple Clients**: Proxy handles concurrent HTTP connections
+- **No Toolhive Required**: Self-contained architecture
 
-#### Deployment Mode: `auto` (Default - Recommended)
-Automatically detects Toolhive availability:
-- **If Toolhive is installed**: Creates MCPServer CRDs with operator management
-- **If Toolhive is not installed**: Creates standard Deployments and Services
-- **Zero configuration required**: Works out of the box in any cluster
-
-#### Deployment Mode: `mcpserver` (Toolhive Required)
-Forces MCPServer CRD deployment:
-- **Oracle SQLcl MCP**: Uses `transport: stdio` with Toolhive proxy
-  - Toolhive automatically proxies stdio to HTTP/SSE for web access
-  - Accessible at: `http://mcp-oracle-sqlcl-proxy:8080/sse`
-- **Weather MCP**: Uses `transport: sse` with Toolhive management
-  - Native SSE transport with Toolhive proxy management
-  - Accessible at: `http://mcp-mcp-weather-proxy:8000/sse`
-
-**Benefits:**
-- Unified deployment model for all MCP servers
-- Automatic proxy and service account management
-- Advanced features like permission profiles
-
-#### Deployment Mode: `deployment` (Standard Kubernetes)
-Forces standard Deployment + Service resources:
-- **Oracle SQLcl MCP**: Deployed as standard Kubernetes Deployment
-- **Weather MCP**: Deployed as standard Kubernetes Deployment + Service
-- Works in any Kubernetes cluster without additional operators
-
-**Benefits:**
-- No operator dependencies
-- Standard Kubernetes resource management
-- Simpler troubleshooting with familiar resources
+```
+HTTP Clients → Go Proxy (port 8080) → SQLcl (stdio) → Oracle DB
+```
 ## Included Files
 
 | File | Description |
@@ -76,19 +56,15 @@ Forces standard Deployment + Service resources:
 - Network connectivity to external APIs
 
 ### Optional
-- **Toolhive Operator**: Required only for MCPServer CRD deployment mode
-  - If not installed, chart automatically uses standard Deployments
-  - Install from: `oci://ghcr.io/stacklok/toolhive/toolhive-operator`
 - **Oracle database**: Required only if enabling Oracle SQLcl MCP server
+- **Oracle user secrets**: OpenShift secrets containing database credentials
 
 ## Installation
 
-### Quick Start (No Toolhive)
-
-The simplest way to get started - works in any Kubernetes cluster:
+### Quick Start
 
 ```bash
-# Install MCP Servers with standard Deployments (no Toolhive required)
+# Install MCP Servers
 helm install mcp-servers ./helm --namespace <your-namespace> --create-namespace
 
 # Check deployment status
