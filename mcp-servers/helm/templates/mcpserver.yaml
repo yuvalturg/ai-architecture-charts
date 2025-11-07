@@ -39,40 +39,44 @@ spec:
     value: {{ $envValue | default "" | quote }}
   {{- end }}
   {{- end }}
-  {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources $server.oracleUserSecrets }}
+  {{- if or $server.securityContext $server.podSecurityContext $server.volumes $server.volumeMounts $server.resources $server.secretMounts }}
   podTemplateSpec:
     spec:
       {{- with $server.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or $server.volumes $server.oracleUserSecrets }}
+      {{- if or $server.volumes $server.secretMounts }}
       volumes:
         {{- with $server.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- range $server.oracleUserSecrets }}
+        {{- if $server.secretMounts }}
+        {{- range $server.secretMounts.secrets }}
         - name: {{ . }}
           secret:
             secretName: {{ . }}
         {{- end }}
+        {{- end }}
       {{- end }}
-      {{- if or $server.securityContext $server.volumeMounts $server.resources $server.oracleUserSecrets }}
+      {{- if or $server.securityContext $server.volumeMounts $server.resources $server.secretMounts }}
       containers:
       - name: mcp
         {{- with $server.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- if or $server.volumeMounts $server.oracleUserSecrets }}
+        {{- if or $server.volumeMounts $server.secretMounts }}
         volumeMounts:
           {{- with $server.volumeMounts }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
-          {{- range $server.oracleUserSecrets }}
+          {{- if $server.secretMounts }}
+          {{- range $server.secretMounts.secrets }}
           - name: {{ . }}
-            mountPath: /user-secrets/{{ . }}
+            mountPath: {{ $server.secretMounts.mountPath }}/{{ . }}
             readOnly: true
+          {{- end }}
           {{- end }}
         {{- end }}
         {{- with $server.resources }}

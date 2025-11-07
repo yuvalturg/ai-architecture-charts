@@ -16,6 +16,9 @@ app.kubernetes.io/version: {{ .root.Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .root.Release.Service }}
 app.kubernetes.io/component: mcp-server
+{{- if .server.transport }}
+mcp.transport: {{ .server.transport }}
+{{- end }}
 {{- end }}
 
 {{/*

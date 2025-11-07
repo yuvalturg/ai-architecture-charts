@@ -1,7 +1,7 @@
 # MCP servers configuration
 mcp-servers:
   weather:
-    enabled: true
+    enabled: false
     # Deployment mode: auto, mcpserver, or deployment
     # - auto: Use MCPServer if Toolhive is available, otherwise use Deployment (default)
     # - mcpserver: Always use MCPServer (requires Toolhive)
@@ -14,55 +14,21 @@ mcp-servers:
     targetPort: 8000
   
   oracle-sqlcl:
-    # Oracle SQLcl MCP Server configuration
-    # NOTE: Requires Oracle database and oracle-db secret to exist
-    enabled: false  # Oracle DB is available
-    deploymentMode: mcpserver  # auto, mcpserver, or deployment
-    port: 8080
-    proxyMode: streamable-http
-    transport: stdio
+    enabled: false
+    deploymentMode: deployment
     image:
       repository: quay.io/rh-ai-quickstart/oracle-sqlcl
       tag: ""  # Defaults to .Chart.Version
-    permissionProfile:
-      name: network
-      type: builtin
-    # List of Oracle user secrets to mount
-    # Each secret will be mounted at /user-secrets/<secret-name>
-    oracleUserSecrets:
-      - oracle-db-user-sales-reader
-    env:
-      JAVA_TOOL_OPTIONS: "-Djava.io.tmpdir=/sqlcl-home/tmp"
-      _JAVA_OPTIONS: ""
-      HOME: "/sqlcl-home"
-    resources:
-      requests:
-        cpu: 500m
-        memory: 512Mi
-      limits:
-        cpu: 1000m
-        memory: 1Gi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
-    podSecurityContext:
-      fsGroup: 0
-      fsGroupChangePolicy: OnRootMismatch
-      seccompProfile:
-        type: RuntimeDefault
+    transport: streamable-http
+    targetPort: 8080
+    # Secrets to mount as volumes
+    secretMounts:
+      mountPath: /user-secrets
+      secrets:
+        - oracle-db-user-sales-reader
     volumes:
-      - name: sqlcl-data
-        ephemeral:
-          volumeClaimTemplate:
-            spec:
-              accessModes:
-                - ReadWriteOnce
-              storageClassName: gp3-csi
-              resources:
-                requests:
-                  storage: 5Gi
+      - name: sqlcl-home
+        emptyDir: {}
     volumeMounts:
-      - name: sqlcl-data
+      - name: sqlcl-home
         mountPath: /sqlcl-home

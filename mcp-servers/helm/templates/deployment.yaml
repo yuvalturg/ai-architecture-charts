@@ -32,14 +32,23 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with $server.volumes }}
+      {{- if or $server.volumes $server.secretMounts }}
       volumes:
+        {{- with $server.volumes }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if $server.secretMounts }}
+        {{- range $server.secretMounts.secrets }}
+        - name: {{ . }}
+          secret:
+            secretName: {{ . }}
+        {{- end }}
+        {{- end }}
       {{- end }}
       containers:
       - name: {{ $key }}
         image: "{{ $server.image.repository }}:{{ $server.image.tag | default $root.Chart.Version }}"
-        imagePullPolicy: {{ $server.imagePullPolicy | default "IfNotPresent" }}
+        imagePullPolicy: {{ $server.imagePullPolicy | default "Always" }}
         {{- if $server.port }}
         ports:
         - name: http
@@ -70,9 +79,18 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-        {{- with $server.volumeMounts }}
+        {{- if or $server.volumeMounts $server.secretMounts }}
         volumeMounts:
+          {{- with $server.volumeMounts }}
           {{- toYaml . | nindent 10 }}
+          {{- end }}
+          {{- if $server.secretMounts }}
+          {{- range $server.secretMounts.secrets }}
+          - name: {{ . }}
+            mountPath: {{ $server.secretMounts.mountPath }}/{{ . }}
+            readOnly: true
+          {{- end }}
+          {{- end }}
         {{- end }}
         {{- with $server.resources }}
         resources:
