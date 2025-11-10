@@ -13,17 +13,18 @@ metadata:
   name: run-config
 data:
   config.yaml: |
-    version: '2'
-    image_name: remote-vllm
+    version: 2
+    image_name: starter
     apis:
     - agents
+    - batches
     - datasetio
     - eval
     - files
     - inference
+    - post_training
     - safety
     - scoring
-    - telemetry
     - tool_runtime
     - vector_io
     providers:
@@ -48,82 +49,70 @@ data:
       {{- end }}
       - provider_id: sentence-transformers
         provider_type: inline::sentence-transformers
-        config: {}
       {{- if .Values.pgvector.enabled }}
-        vector_io:
-        - provider_id: pgvector
-          provider_type: remote::pgvector
-          config:
-            host: ${env.POSTGRES_HOST:=pgvector}
-            port: ${env.POSTGRES_PORT:=5432}
-            db: ${env.POSTGRES_DBNAME:=rag_blueprint}
-            user: ${env.POSTGRES_USER:=postgres}
-            password: ${env.POSTGRES_PASSWORD:=rag_password}
-            kvstore:
-              {{- toYaml .Values.vectorIOKvstore | nindent 12 }}
+      vector_io:
+      - provider_id: pgvector
+        provider_type: remote::pgvector
+        config:
+          host: ${env.POSTGRES_HOST:=pgvector}
+          port: ${env.POSTGRES_PORT:=5432}
+          db: ${env.POSTGRES_DBNAME:=rag_blueprint}
+          user: ${env.POSTGRES_USER:=postgres}
+          password: ${env.POSTGRES_PASSWORD:=rag_password}
+          persistence:
+            {{- toYaml .Values.vectorIOKvstore | nindent 12 }}
       {{- end }}
       files:
       - provider_id: meta-reference-files
         provider_type: inline::localfs
         config:
-          storage_dir: ${env.FILES_STORAGE_DIR:=/tmp/llama-stack-files}
+          storage_dir: ${env.FILES_STORAGE_DIR:=~/.llama/distributions/starter/files}
           metadata_store:
-            type: sqlite
-            db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/files_metadata.db
+            table_name: files_metadata
+            backend: sql_default
       safety:
       - provider_id: llama-guard
         provider_type: inline::llama-guard
-        config: {}
+        config:
+          excluded_categories: []
       agents:
       {{- with .Values.providers.agents }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
+      post_training:
+      - provider_id: torchtune-cpu
+        provider_type: inline::torchtune-cpu
+        config:
+          checkpoint_format: meta
       eval:
       - provider_id: meta-reference
         provider_type: inline::meta-reference
         config:
           kvstore:
-            type: sqlite
-            namespace: null
-            db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/meta_reference_eval.db
+            namespace: eval
+            backend: kv_default
       datasetio:
       - provider_id: huggingface
         provider_type: remote::huggingface
         config:
           kvstore:
-            type: sqlite
-            namespace: null
-            db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/huggingface_datasetio.db
+            namespace: datasetio::huggingface
+            backend: kv_default
       - provider_id: localfs
         provider_type: inline::localfs
         config:
           kvstore:
-            type: sqlite
-            namespace: null
-            db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/localfs_datasetio.db
+            namespace: datasetio::localfs
+            backend: kv_default
       scoring:
       - provider_id: basic
         provider_type: inline::basic
-        config: {}
       - provider_id: llm-as-judge
         provider_type: inline::llm-as-judge
-        config: {}
       - provider_id: braintrust
         provider_type: inline::braintrust
         config:
           openai_api_key: ${env.OPENAI_API_KEY:=}
-      telemetry:
-      - provider_id: meta-reference
-        provider_type: inline::meta-reference
-        config:
-          sqlite_db_path: ${env.SQLITE_DB_PATH:=~/.llama/distributions/starter/trace_store.db}
-          {{- if .Values.otelExporter }}
-          sinks: ${env.TELEMETRY_SINKS:=console,sqlite,otel_trace}
-          service_name: {{ include "llama-stack.fullname" . }}
-          otel_exporter_otlp_endpoint: ${env.OTEL_EXPORTER_OTLP_ENDPOINT:=}
-          {{- else }}
-          sinks: ${env.TELEMETRY_SINKS:=console,sqlite}
-          {{- end }}
       tool_runtime:
       - provider_id: brave-search
         provider_type: remote::brave-search
@@ -137,50 +126,70 @@ data:
           max_results: 3
       - provider_id: rag-runtime
         provider_type: inline::rag-runtime
-        config: {}
       - provider_id: model-context-protocol
         provider_type: remote::model-context-protocol
-        config: {}
-    metadata_store:
-      {{- toYaml .Values.metadataStore | nindent 6 }}
-    models:
-    {{- range $key, $model := $models }}
-    {{- if $model.enabled }}
-    - metadata: {}
-      model_id: {{ $model.id }}
-      provider_id: {{ $key }}
-      model_type: llm
-    {{- end }}
-    {{- end }}
-    - metadata:
-        embedding_dimension: 384
-      model_id: all-MiniLM-L6-v2
-      provider_id: sentence-transformers
-      model_type: embedding
-    {{- with $shields }}
-    shields:
-    {{- range $model := . }}
-    - shield_id: {{ $model.id }}
-      provider_id: llama-guard
-    {{- end }}
-    {{- end }}
-    vector_dbs: []
-    datasets: []
-    scoring_fns: []
-    eval_tasks: []
-    tool_groups:
-    - toolgroup_id: builtin::websearch
-      provider_id: tavily-search
-    - toolgroup_id: builtin::rag
-      provider_id: rag-runtime
-    {{- range $key, $server := $mcpServers }}
-    - toolgroup_id: mcp::{{ $key }}
-      provider_id: model-context-protocol
-      mcp_endpoint:
-        uri: {{ $server.uri }}
-    {{- end }}
-    {{- if .Values.auth }}
+      batches:
+      - provider_id: reference
+        provider_type: inline::reference
+        config:
+          kvstore:
+            namespace: batches
+            backend: kv_default
+    storage:
+      backends:
+        kv_default:
+          type: kv_sqlite
+          db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/kvstore.db
+        sql_default:
+          type: sql_sqlite
+          db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/sql_store.db
+      stores:
+        metadata:
+          namespace: registry
+          backend: kv_default
+        inference:
+          table_name: inference_store
+          backend: sql_default
+          max_write_queue_size: 10000
+          num_writers: 4
+        conversations:
+          table_name: openai_conversations
+          backend: sql_default
+    registered_resources:
+      models:
+      {{- range $key, $model := $models }}
+      {{- if $model.enabled }}
+      - metadata: {}
+        model_id: {{ $model.id }}
+        provider_id: {{ $key }}
+        model_type: llm
+      {{- end }}
+      {{- end }}
+      {{- with $shields }}
+      shields:
+      {{- range $model := . }}
+      - shield_id: {{ $model.id }}
+        provider_id: llama-guard
+      {{- end }}
+      {{- end }}
+      vector_dbs: []
+      datasets: []
+      scoring_fns: []
+      benchmarks: []
+      tool_groups:
+      - toolgroup_id: builtin::websearch
+        provider_id: tavily-search
+      - toolgroup_id: builtin::rag
+        provider_id: rag-runtime
+      {{- range $key, $server := $mcpServers }}
+      - toolgroup_id: mcp::{{ $key }}
+        provider_id: model-context-protocol
+        mcp_endpoint:
+          uri: {{ $server.uri }}
+      {{- end }}
     server:
+      port: 8321
+      {{- if .Values.auth }}
       auth:
         {{- with .Values.auth.provider_config }}
         provider_config:
@@ -188,6 +197,13 @@ data:
         {{- end }}
         {{- with .Values.auth.access_policy }}
         access_policy:
-          {{- toYaml . | nindent 8 }}
+          {{- toYaml . | nindent 10 }}
         {{- end }}
-    {{- end }}
+      {{- end }}
+    telemetry:
+      enabled: true
+    vector_stores:
+      default_provider_id: pgvector
+      default_embedding_model:
+        provider_id: sentence-transformers
+        model_id: nomic-ai/nomic-embed-text-v1.5
