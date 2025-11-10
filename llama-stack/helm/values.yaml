@@ -8,7 +8,7 @@ rawDeploymentMode: true
 image:
   repository: llamastack/distribution-starter
   pullPolicy: IfNotPresent
-  tag: "0.2.22"
+  tag: "0.3.1"
 
 imagePullSecrets: []
 nameOverride: "llamastack"
@@ -33,22 +33,15 @@ service:
   type: ClusterIP
   port: 8321
 
-command:
-  - python
-  - -m
-  - llama_stack.core.server.server
-  - /app-config/config.yaml
 env:
-  - name: VLLM_MAX_TOKENS
-    value: "4096"
-  - name: VLLM_API_TOKEN
-    value: fake
+  - name: RUN_CONFIG_PATH
+    value: /app-config/config.yaml
 
 # PGVector configuration - set enabled to true to enable pgvector integration
 pgvector:
   enabled: true # backwards compatibility
   # When enabled, the following environment variables will be automatically added
-  # from the 'pgvector' in the deployment.yaml
+  # from the 'pgvector' secret in the deployment.yaml
   # - POSTGRES_USER
   # - POSTGRES_PASSWORD
   # - POSTGRES_HOST
@@ -99,6 +92,9 @@ vertexai:
 secrets: {}
 mcp-servers: {}
 models:
+  gpt-oss-20b:
+    id: openai/gpt-oss-20b
+    enabled: false
   llama-3-2-3b-instruct:
     id: meta-llama/Llama-3.2-3B-Instruct
     enabled: false
@@ -130,32 +126,27 @@ models:
   #   apiToken: fake-token
   #   enabled: true
 
-# Metadata store configuration (distribution registry)
-# By default uses SQLite (single replica only)
-# For multi-replica deployments, override in parent values.yaml to use PostgreSQL
-metadataStore:
-  type: sqlite
-  db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/registry.db
-
-# Vector IO provider kvstore configuration
-# By default uses SQLite (single replica only)
+# Vector IO provider persistence configuration
+# By default uses kv_default backend defined in storage section
 # For multi-replica deployments, override in parent values.yaml to use PostgreSQL
 vectorIOKvstore:
-  type: sqlite
-  db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/pgvector_registry.db
+  namespace: vector_io::pgvector
+  backend: kv_default
 
 providers:
   agents:
     - provider_id: meta-reference
       provider_type: inline::meta-reference
       config:
-        persistence_store:
-          type: sqlite
-          namespace: null
-          db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/agents_store.db
-        responses_store:
-          type: sqlite
-          db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/responses_store.db
+        persistence:
+          agent_state:
+            namespace: agents
+            backend: kv_default
+          responses:
+            table_name: responses
+            backend: sql_default
+            max_write_queue_size: 10000
+            num_writers: 4
 
 auth: {}
 # auth:
