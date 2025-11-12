@@ -127,7 +127,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
     os.environ["RAPIDOCR_HOME"] = "/tmp/.rapidocr"
     os.environ["TORCH_HOME"] = "/tmp/.torch"
     os.environ["XDG_CACHE_HOME"] = "/tmp/.cache"
-    
+
     # Configure Tesseract language data path
     # Check common locations for tessdata
     tessdata_paths = [
@@ -140,7 +140,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
             os.environ["TESSDATA_PREFIX"] = path
             print(f"Found tessdata at: {path}")
             break
-    
+
     # Create cache directories
     os.makedirs("/tmp/.EasyOCR", exist_ok=True)
     os.makedirs("/tmp/.rapidocr", exist_ok=True)
@@ -153,7 +153,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
 
     # Setup docling components with Tesseract OCR
     from docling.datamodel.pipeline_options import TesseractOcrOptions
-    
+
     pipeline_options = PdfPipelineOptions()
     pipeline_options.generate_picture_images = True
     pipeline_options.ocr_options = TesseractOcrOptions(force_full_page_ocr=False)
@@ -255,9 +255,6 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
     try:
         vector_store = asyncio.run(client.vector_stores.create(
             name=vector_store_name,
-            embedding_model=embedding_model,
-            embedding_dimension=384,
-            provider_id="pgvector",
         ))
         vector_store_id = vector_store.id
         print(f"Vector store created successfully with ID: {vector_store_id}")
