@@ -19,6 +19,10 @@ notebook:
     region: us-east-1
     bucket_name: llama
 
+# Secret configuration for rag-pipeline-secrets
+secret:
+  create: true
+
 # Pipeline storage configuration for DataSciencePipelinesApplication
 pipelineStorage:
   # Deploy minio as a dependency
