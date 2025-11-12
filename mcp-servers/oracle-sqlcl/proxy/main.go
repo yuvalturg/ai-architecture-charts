@@ -46,7 +46,7 @@ type MCPResponse struct {
 	Error   json.RawMessage `json:"error,omitempty"`
 }
 
-var oraErrorPattern = regexp.MustCompile(`(?i)(ORA-\d+|Error:.*ORA-\d+)`)
+var errorPattern = regexp.MustCompile(`(?i)(ORA-\d+|SP2-\d+|Error:.*(ORA-\d+|SP2-\d+))`)
 
 func NewMCPProxy() (*MCPProxy, error) {
 	sqlPath := os.Getenv("SQL_PATH")
@@ -116,6 +116,13 @@ func (p *MCPProxy) processRequests() {
 }
 
 func markOracleErrors(response json.RawMessage) json.RawMessage {
+	// Check if error marking is enabled via environment variable
+	// If MARK_SQL_ERRORS_AS_ERROR is not set or is "false", skip error marking
+	markErrors := os.Getenv("MARK_SQL_ERRORS_AS_ERROR")
+	if markErrors != "true" && markErrors != "1" {
+		return response
+	}
+
 	var mcpResp MCPResponse
 	if err := json.Unmarshal(response, &mcpResp); err != nil {
 		return response
@@ -139,7 +146,7 @@ func markOracleErrors(response json.RawMessage) json.RawMessage {
 	// Check content for Oracle errors
 	hasOracleError := false
 	for _, content := range result.Content {
-		if content.Type == "text" && (oraErrorPattern.MatchString(content.Text) ||
+		if content.Type == "text" && (errorPattern.MatchString(content.Text) ||
 			strings.Contains(content.Text, "Error:")) {
 			hasOracleError = true
 			log.Printf("Detected Oracle error in response: %s", content.Text)
