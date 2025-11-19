@@ -167,9 +167,11 @@ data:
       {{- end }}
       {{- with $shields }}
       shields:
-      {{- range $model := . }}
-      - shield_id: {{ $model.id }}
+      {{- range $key, $model := $models }}
+      {{- if and $model.enabled $model.registerShield }}
+      - shield_id: {{ $key }}/{{ $model.id }}
         provider_id: llama-guard
+      {{- end }}
       {{- end }}
       {{- end }}
       vector_dbs: []
