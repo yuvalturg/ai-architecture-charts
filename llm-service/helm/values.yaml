@@ -4,7 +4,7 @@ rawDeploymentMode: true
 # Device-specific configurations for tolerations and accelerators
 deviceConfigs:
   gpu:  # NVIDIA GPU configuration
-    image: vllm/vllm-openai:v0.10.2
+    image: vllm/vllm-openai:v0.11.1
     tolerations:
       - key: nvidia.com/gpu
         effect: NoSchedule
@@ -254,7 +254,6 @@ models:
 
   gpt-oss-20b:
     id: openai/gpt-oss-20b
-    device: gpu-nightly-vllm
     enabled: false
     storageSize: 80Gi
     args:
