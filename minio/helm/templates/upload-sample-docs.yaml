@@ -16,7 +16,7 @@ spec:
         - args:
             - -ec
             - |-
-              pip install minio;
+              pip install minio==7.2.18;
               pip install requests;
               cat << 'EOF' | python3
               from minio import Minio
@@ -36,13 +36,17 @@ spec:
                   secure=False
               )
               bucket = os.getenv("MINIO_BUCKET")
+              json_str = os.getenv("URLS")
               print(f"creating {bucket} bucket")
-              if minioClient.bucket_exists(bucket):
-                print(f"bucket {bucket} exists")
-              else:
-                minioClient.make_bucket(bucket)
-                print(f"bucket {bucket} created successfully")
-              json_str = os.environ.get("URLS")
+              try:
+                  if minioClient.bucket_exists(bucket):
+                      print(f"bucket {bucket} exists")
+                  else:
+                      print(f"bucket {bucket} does not exist, creating...")
+                      minioClient.make_bucket(bucket)
+                      print(f"bucket {bucket} created successfully")
+              except Exception as e:
+                  print(f"Error with bucket operations: {e}")
               print(json_str)
 
               urls = []
@@ -53,7 +57,7 @@ spec:
                 except json.JSONDecodeError as e:
                     print("Failed to parse JSON:", e)
               else:
-                    print("Environment variable not set.")
+                print("Environment variable not set.")
 
               for url in urls:
                 try:
