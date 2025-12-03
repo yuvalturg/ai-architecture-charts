@@ -8,7 +8,7 @@ rawDeploymentMode: true
 image:
   repository: llamastack/distribution-starter
   pullPolicy: IfNotPresent
-  tag: "0.3.2"
+  tag: "0.3.3"
 
 imagePullSecrets: []
 nameOverride: "llamastack"
