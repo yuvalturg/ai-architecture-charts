@@ -2,12 +2,13 @@ import os
 from typing import Optional
 
 from kfp import dsl
+from kfp.dsl import Output, Input, Dataset
 
 BASE_IMAGE = os.environ["INGESTION_PIPELINE_IMAGE"]
 
 
 @dsl.component(base_image=BASE_IMAGE)
-def fetch_from_s3(output_dir: dsl.OutputPath()):
+def fetch_from_s3(output_dir: Output[Dataset]):
     import os
     import boto3
 
@@ -18,8 +19,8 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     minio_secret_key = os.environ.get("SECRET_ACCESS_KEY")
 
     # Ensure the output directory exists
-    os.makedirs(output_dir, exist_ok=True)
-    print(f"Created output directory: {output_dir}")
+    os.makedirs(output_dir.path, exist_ok=True)
+    print(f"Created output directory: {output_dir.path}")
 
     # Connect to MinIO
     print(f"Connecting to MinIO at {minio_endpoint}")
@@ -40,34 +41,34 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     for page in pages:
         for obj in page.get("Contents", []):
             key = obj["Key"]
-            file_path = os.path.join(output_dir, os.path.basename(key))
+            file_path = os.path.join(output_dir.path, os.path.basename(key))
             print(f"Downloading: {key} -> {file_path}")
             s3.download_file(bucket_name, key, file_path)
             downloaded_files.append(file_path)
 
-    print(f"Downloaded {len(downloaded_files)} files to {output_dir}")
+    print(f"Downloaded {len(downloaded_files)} files to {output_dir.path}")
 
     if not downloaded_files:
         raise Exception(
             f"No files found in bucket: {bucket_name}. Please check your bucket configuration."
         )
 
-    print(f"Contents of output directory: {os.listdir(output_dir)}")
+    print(f"Contents of output directory: {os.listdir(output_dir.path)}")
 
 
 @dsl.component(base_image=BASE_IMAGE)
-def fetch_from_urls(output_dir: dsl.OutputPath()):
+def fetch_from_urls(output_dir: Output[Dataset]):
     print(f"Storing documents will fetch from URLS env var")
 
 
 @dsl.component(base_image=BASE_IMAGE)
-def fetch_from_github(output_dir: dsl.OutputPath()):
+def fetch_from_github(output_dir: Output[Dataset]):
     import os
     import shutil
     import tempfile
     import git
 
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir.path, exist_ok=True)
     token = os.getenv("GIT_TOKEN")
     url = os.getenv("GIT_URL")
     counter = 0
@@ -88,7 +89,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
                     file_path = os.path.join(root, file)
                     # Create relative path from src_dir to maintain directory structure
                     rel_path = os.path.relpath(file_path, src_dir)
-                    dest_path = os.path.join(output_dir, rel_path)
+                    dest_path = os.path.join(output_dir.path, rel_path)
 
                     # Create destination directory if it doesn't exist
                     dest_dir = os.path.dirname(dest_path)
@@ -107,7 +108,7 @@ def fetch_from_github(output_dir: dsl.OutputPath()):
 
 
 @dsl.component(base_image=BASE_IMAGE)
-def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_user: str):
+def store_documents(llamastack_base_url: str, input_dir: Input[Dataset], auth_user: str):
     import os
     import asyncio
     from pathlib import Path
@@ -180,7 +181,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
 
         input_files = ast.literal_eval(os.getenv("URLS", "[]"))
     else:
-        input_files = [str(p) for p in Path(input_dir).iterdir() if p.is_file()]
+        input_files = [str(p) for p in Path(input_dir.path).iterdir() if p.is_file()]
     if not input_files:
         raise RuntimeError("No input files found")
     print(f"Input files: {input_files}")
@@ -339,7 +340,7 @@ def store_documents(llamastack_base_url: str, input_dir: dsl.InputPath(), auth_u
 
 
 @dsl.component(base_image=BASE_IMAGE)
-def generate_provenance(input_dir: dsl.InputPath()):
+def generate_provenance(input_dir: Input[Dataset]):
     import base64
     import datetime
     import gzip
@@ -411,7 +412,7 @@ def generate_provenance(input_dir: dsl.InputPath()):
 
     def get_sources_sha():
         chunk_size = 2**20
-        files=[p for p in Path(input_dir).iterdir() if p.is_file()]
+        files=[p for p in Path(input_dir.path).iterdir() if p.is_file()]
         for file in files:
             shasum = hashlib.sha512()
             with file.open("rb") as f:
