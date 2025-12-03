@@ -2,10 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-
+# Install system dependencies (changes rarely - good for caching)
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     git \
     libgl1 \
     libglib2.0-0 \
@@ -18,9 +17,16 @@ RUN apt-get update && \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first to leverage Docker layer caching
+# This layer only rebuilds when requirements.txt changes
+COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Copy application code last (changes most frequently)
+# By placing this last, code changes don't invalidate earlier cached layers
 COPY ingestion_pipeline ingestion_pipeline
 
 CMD ["uvicorn", "ingestion_pipeline.main:app", "--host", "0.0.0.0", "--port", "8000"]

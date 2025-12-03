@@ -284,6 +284,8 @@ jobs:
             quay.io/rh-ai-quickstart/${{ matrix.name }}:${{ steps.version.outputs.version }}
             quay.io/rh-ai-quickstart/${{ matrix.name }}:${{ steps.version.outputs.short_sha }}
             quay.io/rh-ai-quickstart/${{ matrix.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   package-helm-charts:
     needs: [detect-changes, update-versions-and-tag]
