@@ -177,7 +177,7 @@ jobs:
             echo "  Current version: $current_version"
 
             # Check if tag exists for this version
-            tag_name="${component}-${current_version}"
+            tag_name="${component}/v${current_version}"
             if git rev-parse "$tag_name" >/dev/null 2>&1; then
               echo "  Tag $tag_name already exists, auto-incrementing patch version"
 
@@ -212,8 +212,8 @@ jobs:
             COMMIT_SHAS_JSON=$(echo "$COMMIT_SHAS_JSON" | jq --arg component "$component" --arg sha "$COMMIT_SHA" '. + {($component): $sha}')
 
             # Create annotated tag for this commit
-            tag_name="${component}-${new_version}"
-            git tag -a "$tag_name" -m "Release ${component} version ${new_version}
+            tag_name="${component}/v${new_version}"
+            git tag -a "$tag_name" -m "Release ${component} version v${new_version}
 
             Version: ${new_version}
             Commit: $(git rev-parse --short HEAD)"
