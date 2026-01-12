@@ -2,7 +2,4 @@ module github.com/rh-ai-kickstart/ai-architecture-charts/mcp-servers/oracle-sqlc
 
 go 1.21
 
-require github.com/rh-ai-kickstart/ai-architecture-charts/mcp-servers/mcpproxy v0.1.0
-
-// For local development, uncomment the replace directive below
-// replace github.com/rh-ai-kickstart/ai-architecture-charts/mcp-servers/mcpproxy => ../../mcpproxy
+require github.com/rh-ai-kickstart/ai-architecture-charts/mcp-servers/mcpproxy v0.0.0-20260112200911-3c502cb8d0cf
