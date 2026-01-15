@@ -4,7 +4,7 @@ kubernetes
 kfp[kubernetes]==2.14.6
 boto3
 GitPython
-llama-stack-client==0.3.3
+llama-stack-client==0.4.1
 fire
 requests
 docling
