@@ -86,3 +86,13 @@ Create the name of the service account to use
   {{- $merged := merge $globalServers $localServers }}
   {{- toJson $merged }}
 {{- end }}
+
+{{- define "llama-stack.hasEnabledModels" -}}
+  {{- $models := include "llama-stack.mergeModels" . | fromJson }}
+  {{- range $key, $model := $models }}
+    {{- if $model.enabled }}
+      {{- "true" }}
+      {{- break }}
+    {{- end }}
+  {{- end }}
+{{- end }}
