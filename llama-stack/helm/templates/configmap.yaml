@@ -156,6 +156,7 @@ data:
           table_name: openai_conversations
           backend: sql_default
     registered_resources:
+      {{- if include "llama-stack.hasEnabledModels" . }}
       models:
       {{- range $key, $model := $models }}
       {{- if $model.enabled }}
@@ -164,6 +165,9 @@ data:
         provider_id: {{ $key }}
         model_type: llm
       {{- end }}
+      {{- end }}
+      {{- else }}
+      models: []
       {{- end }}
       {{- with $shields }}
       shields:
