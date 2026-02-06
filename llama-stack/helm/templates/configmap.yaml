@@ -137,7 +137,7 @@ data:
             backend: kv_default
     storage:
       backends:
-        {{- if .Values.storage.backends }}
+        {{- if and .Values.storage .Values.storage.backends }}
         {{- toYaml .Values.storage.backends | nindent 8 }}
         {{- else }}
         kv_default:
@@ -163,7 +163,7 @@ data:
       {{- if include "llama-stack.hasEnabledModels" . }}
       models:
       {{- range $key, $model := $models }}
-      {{- if $model.enabled }}
+      {{- if and $model.enabled (ne $key "remote-llm") }}
       - metadata: {}
         model_id: {{ $model.id }}
         provider_id: {{ $key }}
