@@ -123,13 +123,12 @@ models:
   llama-3-2-1b-instruct-quantized:
     id: RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8
     enabled: false
-  # To configure LlamaStack with remote llm, replace the id,
-  # url and apiToken value and set enabled to true
-  # remote-llm:
-  #   id: llama-3-3-70b-instruct-w8a8
-  #   url: https://somedomain.com/v1
-  #   apiToken: fake-token
-  #   enabled: true
+  # To configure LlamaStack with remote llm provider (without registering a specific model),
+  # set url and optionally apiToken, then set enabled to true
+  remote-llm:
+    url: ""
+    apiToken: ""
+    enabled: false
 
 # Vector IO provider persistence configuration
 # By default uses kv_default backend defined in storage section

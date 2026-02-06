@@ -88,11 +88,12 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "llama-stack.hasEnabledModels" -}}
+  {{- $found := false }}
   {{- $models := include "llama-stack.mergeModels" . | fromJson }}
   {{- range $key, $model := $models }}
-    {{- if $model.enabled }}
-      {{- "true" }}
-      {{- break }}
+    {{- if and $model.enabled (ne $key "remote-llm") }}
+      {{- $found = true }}
     {{- end }}
   {{- end }}
+  {{- if $found }}true{{- end }}
 {{- end }}
