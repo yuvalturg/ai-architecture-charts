@@ -5,6 +5,7 @@ metadata:
   labels:
     {{- include "minio.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "minio.fullname" . }}
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:

@@ -9,6 +9,7 @@ metadata:
     {{- include "oracle-db.labels" . | nindent 4 }}
     app.kubernetes.io/component: database
 spec:
+  serviceName: {{ include "oracle-db.fullname" . }}
   replicas: {{ .Values.oracle.replicaCount }}
   selector:
     matchLabels:

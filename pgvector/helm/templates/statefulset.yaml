@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "pgvector.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "pgvector.fullname" . }}
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
