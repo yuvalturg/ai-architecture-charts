@@ -109,154 +109,50 @@ def fetch_from_github(output_dir: Output[Dataset]):
 
 @dsl.component(base_image=BASE_IMAGE)
 def store_documents(llamastack_base_url: str, input_dir: Input[Dataset], auth_user: str):
+    import ast
     import os
-    import asyncio
+    import time
     from pathlib import Path
 
-    from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from llama_stack_client import LlamaStackClient
 
-    # Import docling libraries
-    from docling.document_converter import DocumentConverter, PdfFormatOption
-    from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
-    from docling_core.types.doc.labels import DocItemLabel
-    from llama_stack_client import AsyncLlamaStackClient
-    from llama_stack_client.types import Document as LlamaStackDocument
-
-    # Set up writable cache directories for OCR engines
-    os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
-    os.environ["RAPIDOCR_HOME"] = "/tmp/.rapidocr"
-    os.environ["TORCH_HOME"] = "/tmp/.torch"
-    os.environ["XDG_CACHE_HOME"] = "/tmp/.cache"
-
-    # Configure Tesseract language data path
-    # Check common locations for tessdata
-    tessdata_paths = [
-        "/usr/share/tesseract-ocr/5/tessdata",
-        "/usr/share/tesseract-ocr/4.00/tessdata",
-        "/usr/share/tessdata"
-    ]
-    for path in tessdata_paths:
-        if os.path.exists(path):
-            os.environ["TESSDATA_PREFIX"] = path
-            print(f"Found tessdata at: {path}")
-            break
-
-    # Create cache directories
-    os.makedirs("/tmp/.EasyOCR", exist_ok=True)
-    os.makedirs("/tmp/.rapidocr", exist_ok=True)
-    os.makedirs("/tmp/.torch", exist_ok=True)
-    os.makedirs("/tmp/.cache", exist_ok=True)
-
-    # Configuring the vector store
-    embedding_model = os.getenv("EMBEDDING_MODEL")
     vector_store_name = os.getenv("VECTOR_STORE_NAME")
 
-    # Setup docling components with Tesseract OCR
-    from docling.datamodel.pipeline_options import TesseractOcrOptions
-
-    pipeline_options = PdfPipelineOptions()
-    pipeline_options.generate_picture_images = True
-    pipeline_options.ocr_options = TesseractOcrOptions(force_full_page_ocr=False)
-    converter = DocumentConverter(
-        allowed_formats=[
-            InputFormat.PDF,
-            InputFormat.MD,
-            InputFormat.DOCX,
-            InputFormat.ASCIIDOC,
-            InputFormat.JSON_DOCLING,
-            InputFormat.HTML,
-        ],  # TODO: add YAML
-        format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-        },
-    )
-    chunker = HybridChunker()
-    llama_documents = []
-    i = 0
-    # Process each file with docling (chunking)
+    # Collect input files
     input_files = []
     if os.getenv("URLS"):
-        import ast
-
         input_files = ast.literal_eval(os.getenv("URLS", "[]"))
     else:
         input_files = [str(p) for p in Path(input_dir.path).iterdir() if p.is_file()]
     if not input_files:
         raise RuntimeError("No input files found")
     print(f"Input files: {input_files}")
-    for file_path in input_files:
-        print(f"Processing {file_path} with docling...")
-        try:
-            docling_doc = converter.convert(source=file_path).document
-            chunks = chunker.chunk(docling_doc)
-            chunk_count = 0
 
-            for chunk in chunks:
-                if any(
-                    c.label
-                    in [
-                        DocItemLabel.TEXT,
-                        DocItemLabel.PARAGRAPH,
-                        DocItemLabel.TABLE,
-                        DocItemLabel.PAGE_HEADER,
-                        DocItemLabel.PAGE_FOOTER,
-                        DocItemLabel.TITLE,
-                        DocItemLabel.PICTURE,
-                        DocItemLabel.CHART,
-                        DocItemLabel.DOCUMENT_INDEX,
-                        DocItemLabel.SECTION_HEADER,
-                    ]
-                    for c in chunk.meta.doc_items
-                ):
-                    i += 1
-                    chunk_count += 1
-                    llama_documents.append(
-                        LlamaStackDocument(
-                            document_id=f"doc-{i}",
-                            content=chunk.text,
-                            mime_type="text/plain",
-                            metadata={"source": os.path.basename(file_path)},
-                        )
-                    )
-            print(f"Created {chunk_count} chunks from {file_path}")
-
-        except Exception as e:
-            error_message = str(e)
-            print(f"Error processing {file_path}: {error_message}")
-
-    total_chunks = len(llama_documents)
-    print(f"Total valid chunks prepared: {total_chunks}")
-
-    # Add error handling for zero chunks
-    if total_chunks == 0:
-        raise Exception(
-            "No valid chunks were created. Check document processing errors above."
-        )
-
-    # Step 3: Register vector database and store chunks with embeddings
+    # Set up LlamaStack client
     headers = {}
     if auth_user:
-        headers={"X-Forwarded-User": auth_user}
-        file_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        headers = {"X-Forwarded-User": auth_user}
+        token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
         try:
-            with open(file_path, "r") as file:
-                token = file.read()
-                headers["Authorization"]=f"Bearer {token}"
+            with open(token_path, "r") as f:
+                token = f.read()
+                headers["Authorization"] = f"Bearer {token}"
         except FileNotFoundError:
-            print(f"Error: The file '{file_path}' was not found.")
+            print(f"Error: The file '{token_path}' was not found.")
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    client = AsyncLlamaStackClient(
+    client = LlamaStackClient(
         base_url=llamastack_base_url,
         default_headers=headers,
     )
+
+    # Create vector store
     print("Creating vector store", vector_store_name)
     try:
-        vector_store = asyncio.run(client.vector_stores.create(
+        vector_store = client.vector_stores.create(
             name=vector_store_name,
-        ))
+        )
         vector_store_id = vector_store.id
         print(f"Vector store created successfully with ID: {vector_store_id}")
     except Exception as e:
@@ -264,60 +160,36 @@ def store_documents(llamastack_base_url: str, input_dir: Input[Dataset], auth_us
         print(f"Failed to create vector store: {error_message}")
         raise Exception(f"Vector store creation failed: {error_message}")
 
+    # Upload files and attach to vector store
     try:
-        print(f"Processing {total_chunks} chunks for vector store insertion")
-        import tempfile
-        import json
-
-        # Create temporary files for each document chunk and upload them
+        print(f"Uploading {len(input_files)} files")
         uploaded_files = []
-        for i, doc in enumerate(llama_documents):
-            # Create a temporary file for each chunk
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_file:
-                # Write the document content to the file
-                temp_file.write(doc.content)
-                temp_file_path = temp_file.name
+        for i, file_path in enumerate(input_files):
+            with open(file_path, 'rb') as file_content:
+                file_response = client.files.create(
+                    file=file_content,
+                    purpose="assistants"
+                )
 
-            try:
-                # Upload the file to the Files API
-                with open(temp_file_path, 'rb') as file_content:
-                    file_response = asyncio.run(client.files.create(
-                        file=file_content,
-                        purpose="assistants"
-                    ))
+            client.vector_stores.files.create(
+                vector_store_id=vector_store_id,
+                file_id=file_response.id,
+            )
 
-                # Attach the file to the vector store
-                file_attach_response = asyncio.run(client.vector_stores.files.create(
-                    vector_store_id=vector_store_id,
-                    file_id=file_response.id,
-                    attributes=doc.metadata,
-                ))
-
-                uploaded_files.append({
-                    'file_id': file_response.id,
-                    'attach_response': file_attach_response,
-                    'source': doc.metadata.get('source', f'chunk-{i}')
-                })
-
-                print(f"Uploaded and attached file {i+1}/{total_chunks}: {doc.metadata.get('source', f'chunk-{i}')}")
-
-            finally:
-                # Clean up temporary file
-                import os
-                try:
-                    os.unlink(temp_file_path)
-                except:
-                    pass
+            uploaded_files.append({
+                'file_id': file_response.id,
+                'source': os.path.basename(file_path),
+            })
+            print(f"Uploaded and attached file {i+1}/{len(input_files)}: {os.path.basename(file_path)}")
 
         # Wait for all files to be processed
         print("Waiting for all files to be processed...")
-        import time
         for file_info in uploaded_files:
             while True:
-                status_response = asyncio.run(client.vector_stores.files.retrieve(
+                status_response = client.vector_stores.files.retrieve(
                     vector_store_id=vector_store_id,
                     file_id=file_info['file_id']
-                ))
+                )
 
                 if status_response.status == "completed":
                     print(f"File {file_info['source']} processed successfully")
