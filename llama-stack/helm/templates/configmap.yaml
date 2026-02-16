@@ -34,7 +34,7 @@ data:
       - provider_id: {{ $key }}
         provider_type: remote::vllm
         config:
-          url: {{ $model.url }}
+          base_url: {{ $model.url }}
           api_token: {{ $model.apiToken | default "fake" }}
           max_tokens: {{ $model.maxTokens | default 4096 }}
           tls_verify: {{ $model.tlsVerify | default false }}
